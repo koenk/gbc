@@ -34,7 +34,7 @@ void read_file(char *filename, u8 **src, size_t *size) {
     fclose(fp);
 }
 
-void main(void) {
+int main(void) {
     char filename[] = "pkmn_blue.gb"; int rom_type = 0;
     //char filename[] = "pkmn_silver.gbc"; int rom_type = 1;
     u8 *file;
@@ -75,5 +75,9 @@ void main(void) {
 
     free(file);
 
-    while (1);
+    #ifdef WIN32
+        while (1);
+    #endif
+    
+    return 0;
 }

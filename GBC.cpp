@@ -483,4 +483,5 @@ u16 GBC::mem_read(u16 location) {
     default:
         printf("INVALID LOCATION\n");
     }
+    return 0;
 }
