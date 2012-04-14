@@ -16,10 +16,10 @@ public:
     int do_instruction(void);
 
     u16 pc;
-    int cycles;
+    long cycles;
 private:
-    u16 mem_read(u16 location);
-    void mem_write(u16 location, u16 value);
+    u8 mem_read(u16 location);
+    void mem_write(u16 location, u8 value);
     void handle_interrupts(void);
     void handle_LCD(int op_cycles);
 
@@ -29,6 +29,12 @@ private:
     inline void F(u8 n) { AF = (AF & 0xff00) | n; }
     inline u8 B(void) { return BC >> 8; };
     inline void B(u8 n) { BC = (BC & 0xff) | (n << 8); }
+    inline u8 C(void) { return BC & 0xff; };
+    inline void C(u8 n) { BC = (BC & 0xff00) | n; }
+    inline u8 D(void) { return DE >> 8; };
+    inline void D(u8 n) { DE = (DE & 0xff) | (n << 8); }
+    inline u8 E(void) { return DE & 0xff; };
+    inline void E(u8 n) { DE = (DE & 0xff00) | n; }
 
     static const u8 FLAG_C = 0x10;
     static const u8 FLAG_H = 0x20;
@@ -69,8 +75,12 @@ private:
     u8 io_serial_data;
     u8 io_serial_control;
 
-    u8 mem_HRAM[0xfffe - 0xff80 + 1];
-    u8 mem_WRAM0[0xcfff - 0xc000 + 1];
+    int mem_bank_rom, mem_bank_ram, mem_bank_wram;
+
+    u8 mem_RAM[4][0x2000];
+    u8 mem_HRAM[0x7f];
+    u8 mem_WRAM[8][0x1000];
+
 };
 
 #endif

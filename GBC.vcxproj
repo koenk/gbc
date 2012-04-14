@@ -66,6 +66,7 @@
   <ItemGroup>
     <ClInclude Include="disassembler.h" />
     <ClInclude Include="GBC.h" />
+    <ClInclude Include="pause.h" />
     <ClInclude Include="types.h" />
     <ClInclude Include="wintime.h" />
   </ItemGroup>

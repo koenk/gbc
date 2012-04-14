@@ -2,6 +2,8 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "pause.h"
+
 const int GB_FREQ = 4194304; // Hz
 const int GB_LCD_WIDTH = 160;
 const int GB_LCD_HEIGHT = 144;
@@ -16,43 +18,43 @@ const int GB_LCD_MODE_2_CLKS = 80;
 const int GB_LCD_MODE_3_CLKS = 172;
 
 const int cycles_per_instruction[] = { 
- // 0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
-    1, 3, 2, 2, 1, 1, 2, 1, 5, 2, 2, 2, 1, 1, 2, 1, // 0
-    1, 3, 2, 2, 1, 1, 2, 1, 3, 2, 2, 2, 1, 1, 2, 1, // 1
-    2, 3, 2, 2, 1, 1, 2, 1, 2, 2, 2, 2, 1, 1, 2, 1, // 2
-    2, 3, 2, 2, 3, 3, 3, 1, 2, 2, 2, 2, 1, 1, 2, 1, // 3
-    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 4
-    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 5
-    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 6
-    2, 2, 2, 2, 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 2, 1, // 7
-    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 8
-    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 9
-    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // a
-    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1, 2, 1, // b
-    2, 3, 3, 4, 3, 4, 2, 4, 2, 4, 3, 0, 3, 6, 2, 4, // c
-    2, 3, 3, 1, 3, 4, 2, 4, 2, 4, 3, 1, 3, 1, 2, 4, // d
-    3, 3, 2, 1, 1, 4, 2, 4, 4, 1, 4, 1, 1, 1, 2, 4, // e
-    3, 3, 2, 1, 1, 4, 2, 4, 3, 2, 4, 1, 0, 1, 2, 4  // f
+  // 0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f
+     4, 12,  8,  8,  4,  4,  8,  4, 20,  8,  8,  8,  4,  4,  8,  4, // 0
+     4, 12,  8,  8,  4,  4,  8,  4, 12,  8,  8,  8,  4,  4,  8,  4, // 1
+     8, 12,  8,  8,  4,  4,  8,  4,  8,  8,  8,  8,  4,  4,  8,  4, // 2
+     8, 12,  8,  8, 12, 12, 12,  4,  8,  8,  8,  8,  4,  4,  8,  4, // 3
+     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4, // 4
+     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4, // 5
+     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4, // 6
+     8,  8,  8,  8,  8,  8,  4,  8,  4,  4,  4,  4,  4,  4,  8,  4, // 7
+     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4, // 8
+     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4, // 9
+     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4, // a
+     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  8,  4,  8,  4, // b
+     8, 12, 12, 16, 12, 16,  8, 16,  8, 16, 12,  0, 12, 24,  8, 16, // c
+     8, 12, 12,  4, 12, 16,  8, 16,  8, 16, 12,  4, 12,  4,  8, 16, // d
+    12, 12,  8,  4,  4, 16,  8, 16, 16,  4, 16,  4,  4,  4,  8, 16, // e
+    12, 12,  8,  4,  4, 16,  8, 16, 12,  8, 16,  4,  0,  4,  8, 16, // f
 };
 
 const int cycles_per_instruction_cb[] = {
- // 0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
-    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 0
-    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 1
-    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 2
-    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 3
-    2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, // 4
-    2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, // 5
-    2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, // 6
-    2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, // 7
-    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 8
-    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 9
-    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // a
-    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // b
-    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // c
-    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // d
-    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // e
-    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2  // f
+  // 0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // 0
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // 1
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // 2
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // 3
+     8,  8,  8,  8,  8,  8, 12,  8,  8,  8,  8,  8,  8,  8, 12,  8, // 4
+     8,  8,  8,  8,  8,  8, 12,  8,  8,  8,  8,  8,  8,  8, 12,  8, // 5
+     8,  8,  8,  8,  8,  8, 12,  8,  8,  8,  8,  8,  8,  8, 12,  8, // 6
+     8,  8,  8,  8,  8,  8, 12,  8,  8,  8,  8,  8,  8,  8, 12,  8, // 7
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // 8
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // 9
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // a
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // b
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // c
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // d
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // e
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // f
 };
 
 
@@ -111,8 +113,14 @@ void GBC::reset_state(void) {
     io_serial_data    = 0x00;
     io_serial_control = 0x00;
 
-    memset(mem_HRAM, 0, 0xfffe - 0xff80 + 1);
-    memset(mem_WRAM0, 0, 0xcfff - 0xc000 + 1);
+    mem_bank_rom = 1;
+    mem_bank_ram = 0;
+    mem_bank_wram = 1;
+
+    memset(mem_RAM, 0, 4 * 0x2000);
+    memset(mem_HRAM, 0, 0x7f);
+    memset(mem_WRAM, 0, 8 * 0x1000);
+
 }
 
 void GBC::print_header_info(void) {
@@ -150,6 +158,31 @@ void GBC::print_header_info(void) {
     case 0xfd: printf("BANDAI TAMA5\n"); break;
     case 0xfe: printf("HuC3\n"); break;
     case 0xff: printf("HuC1+RAM+BATTERY\n"); break;
+    }
+
+    printf("ROM Size: ");
+    u8 cart_ROM = rom[0x148];
+    switch(cart_ROM) {
+    case 0x00: printf("32KB (no banks)\n"); break;
+    case 0x01: printf("64KB (4 banks)\n"); break;
+    case 0x02: printf("128KB (8 banks)\n"); break;
+    case 0x03: printf("256KB (16 banks)\n"); break;
+    case 0x04: printf("512KB (32 banks)\n"); break;
+    case 0x05: printf("1MB (64 banks)\n"); break;
+    case 0x06: printf("2MB (128 banks)\n"); break;
+    case 0x07: printf("4MB (256 banks)\n"); break;
+    case 0x52: printf("1.1MB (72 banks)\n"); break;
+    case 0x53: printf("1.2MB (80 banks)\n"); break;
+    case 0x54: printf("1.5MB (96 banks)\n"); break;
+    }
+
+    printf("RAM Size: ");
+    u8 cart_RAM = rom[0x149];
+    switch(cart_RAM) {
+    case 0x00: printf("None\n"); break;
+    case 0x01: printf("2KB\n"); break;
+    case 0x02: printf("8KB\n"); break;
+    case 0x03: printf("32KB (4 banks)\n"); break;
     }
 }
 
@@ -222,7 +255,6 @@ void GBC::handle_LCD(int op_cycles) {
 
 int GBC::do_instruction(void) {
     // TODO:
-    // * LY
     // * timer
 
     u8 op;
@@ -232,6 +264,12 @@ int GBC::do_instruction(void) {
 
     if (interrupts_master_enabled && interrupts_enable & interrupts_request)
         handle_interrupts();
+
+    if (pc > 0x3fff) {
+        printf("Program counter (%d) out of normal ROM bank 0 -- We need that thing bank switched now?\n", pc);
+        pause();
+        return 1;
+    }
 
     op = rom[pc++];
     op_cycles = cycles_per_instruction[op];
@@ -249,6 +287,21 @@ int GBC::do_instruction(void) {
         temp2 = rom[pc++];
         BC = temp1 | (temp2 << 8);
         break;
+    case 0x05: // DEC B
+        B(B() - 1);
+        F((B() == 0 ? FLAG_Z : 0) |
+            FLAG_N |
+            (B() & 0xf == 0xf ? FLAG_H : 0) |
+            F() & FLAG_C);
+
+        break;
+    case 0x06: // LD B, nn
+        temp1 = rom[pc++];
+        B(temp1);
+        break;
+    case 0x0b: // DEC BC
+        BC--;
+        break;
     case 0x18: // JR nn (offset)
         stemp = rom[pc++];
         pc += stemp;
@@ -261,6 +314,17 @@ int GBC::do_instruction(void) {
             pc++;
         }
         break;
+    case 0x21: // LD HL, nnnn
+        temp1 = rom[pc++];
+        temp2 = rom[pc++];
+        HL = temp1 | (temp2 << 8);
+        break;
+    case 0x22: // LDI (HL), A
+        mem_write(HL, A());
+        break;
+    case 0x23: // INC HL
+        HL++;
+        break;
     case 0x28: // JR Z, nn (offset)
         if (AF & FLAG_Z) {
             stemp = rom[pc++];
@@ -269,6 +333,15 @@ int GBC::do_instruction(void) {
             pc++;
         }
         break;
+    case 0x31: // LD sp, nnnn
+        temp1 = rom[pc++];
+        temp2 = rom[pc++];
+        sp = temp1 | (temp2 << 8);
+        break;
+    case 0x36: // LD (HL), nn
+        temp1 = rom[pc++];
+        mem_write(HL, temp1);
+        break;
     case 0x3e: // LD a, nn
         temp1 = rom[pc++];
         A(temp1);
@@ -276,13 +349,30 @@ int GBC::do_instruction(void) {
     case 0x47: // LD B, A
         B(A());
         break;
-
+    case 0x57: // LD D, A
+        D(A());
+        break;
+    case 0x78: // LD A, B
+        A(B());
+        break;
+    case 0x7a: // LD A, D
+        A(D());
+        break;
     case 0xaf: // XOR a (so clear a)
         A(0);
+        break;
+    case 0xb1: // OR C
+        A(A() | C());
+        F(A() == 0 ? FLAG_Z : 0);
         break;
     case 0xc3: // JP nnnn
         temp1 = rom[pc++];
         temp2 = rom[pc++];
+        pc = temp1 | (temp2 << 8);
+        break;
+    case 0xc9: // RET
+        temp1 = mem_read(sp++);
+        temp2 = mem_read(sp++);
         pc = temp1 | (temp2 << 8);
         break;
     case 0xcb: // EXTENDED INSTRUCTION
@@ -304,6 +394,16 @@ int GBC::do_instruction(void) {
         mem_write(--sp,  pc & 0x00ff);
 
         pc = temp1 | (temp2 << 8);
+        break;
+    case 0xd1: // POP DE
+        temp1 = mem_read(sp++);
+        temp2 = mem_read(sp++);
+
+        DE = temp1 | (temp2 << 8);
+        break;
+    case 0xd5: // PUSH DE
+        mem_write(--sp, (DE & 0xff00) >> 8);
+        mem_write(--sp,  DE & 0x00ff);
         break;
     case 0xe0: // LD (ffnn), A
         temp1 = rom[pc++];
@@ -345,7 +445,7 @@ int GBC::do_instruction(void) {
 }
 
 
-void GBC::mem_write(u16 location, u16 value) {
+void GBC::mem_write(u16 location, u8 value) {
     // MBC3
 
     printf("Mem write (%x) %x: ", location, value);
@@ -353,18 +453,24 @@ void GBC::mem_write(u16 location, u16 value) {
     case 0x0000: // 0000 - 1FFF
     case 0x1000:
         printf("RAM+Timer enable\n");
+        pause();
         break;
     case 0x2000: // 2000 - 3FFF
     case 0x3000:
         printf("ROM bank number\n");
+        mem_bank_rom = value;
+        if (value != 1)
+            pause();
         break;
     case 0x4000: // 4000 - 5FFF
     case 0x5000:
         printf("RAM bank number -OR- RTC register select\n");
+        pause();
         break;
     case 0x6000: // 6000 - 7FFF
     case 0x7000:
         printf("Latch clock data\n");
+        pause();
         break;
     case 0x8000: // 8000 - 9FFF
     case 0x9000:
@@ -373,16 +479,19 @@ void GBC::mem_write(u16 location, u16 value) {
     case 0xa000: // A000 - BFFF
     case 0xb000:
         printf("RAM (sw)/RTC\n");
+        pause();
         break;
     case 0xc000: // C000 - CFFF
-        printf("W RAM B0  @%x\n", (location - 0xc000));
-        mem_WRAM0[location - 0xc000] = value;
+        printf("WRAM B0  @%x\n", (location - 0xc000));
+        mem_WRAM[0][location - 0xc000] = value;
         break;
     case 0xd000: // D000 - DFFF
-        printf("W RAM B1 (switchable)\n");
+        printf("WRAM B1-7 (switchable) @%x, bank %d\n", location - 0xd000, mem_bank_wram);
+        mem_WRAM[mem_bank_wram][location - 0xd000] = value;
         break;
     case 0xe000: // E000 - FDFF
         printf("ECHO (0xc000 - 0xfdff) B0\n");
+        pause();
         break;
     case 0xf000:
         if (location < 0xfe00) {
@@ -471,6 +580,7 @@ void GBC::mem_write(u16 location, u16 value) {
                 break;
             default:
                 printf("UNKNOWN\n");
+                pause();
             }
             
             break;
@@ -488,11 +598,12 @@ void GBC::mem_write(u16 location, u16 value) {
         }
     default:
         printf("INVALID LOCATION\n");
+        pause();
         break;
     }
 }
 
-u16 GBC::mem_read(u16 location) {
+u8 GBC::mem_read(u16 location) {
     // MBC3
 
     //printf("Mem read (%x): ", location);
@@ -509,6 +620,7 @@ u16 GBC::mem_read(u16 location) {
     case 0x6000:
     case 0x7000:
         printf("CA ROM switchable\n");
+        pause();
         break;
     case 0x8000: // 8000 - 9FFF
     case 0x9000:
@@ -517,15 +629,18 @@ u16 GBC::mem_read(u16 location) {
     case 0xa000: // A000 - BFFF
     case 0xb000:
         printf("RAM (sw)/RTC\n");
+        pause();
         break;
     case 0xc000: // C000 - CFFF
-        printf("W RAM B0  @%x\n", (location - 0xc000));
-        return mem_WRAM0[location - 0xc000];
+        printf("WRAM B0  @%x\n", (location - 0xc000));
+        return mem_WRAM[0][location - 0xc000];
     case 0xd000: // D000 - DFFF
-        printf("W RAM B1 (switchable)\n");
+        printf("WRAM B1-7 (switchable) @%x, bank %d\n", location - 0xd000, mem_bank_wram);
+        return mem_WRAM[mem_bank_wram][location - 0xd000];
         break;
     case 0xe000: // E000 - FDFF
         printf("ECHO (0xc000 - 0xddff) B0\n");
+        pause();
         break;
     case 0xf000:
         if (location < 0xfe00) {
@@ -600,6 +715,7 @@ u16 GBC::mem_read(u16 location) {
             }
             
             printf("UNKNOWN\n");
+            pause();
         }
         if (location < 0xffff) { // FF80 - FFFE
             printf("HRAM  @%x", location - 0xff80);
@@ -612,6 +728,7 @@ u16 GBC::mem_read(u16 location) {
     
     default:
         printf("INVALID LOCATION\n");
+        pause();
     }
     return 0;
 }

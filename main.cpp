@@ -50,7 +50,7 @@ int main(void) {
     emu.print_header_info();
 
     disassemble_bootblock(file);
-
+    
     printf("==========================\n");
     printf("=== Starting execution ===\n");
     printf("==========================\n\n");
@@ -64,7 +64,7 @@ int main(void) {
     gettimeofday(&starttime, NULL);
     
     while (!ret && emu.cycles < cycles_to_emulate) {
-        if (emu.pc > 0x6f) {
+        if (emu.pc > 0x6f && (emu.pc < 0x1f80 || emu.pc > 0x1f86) && (emu.pc < 0x36e2 || emu.pc > 0x36e7)) {
             emu.print_regs();
             disassemble(file, emu.pc);
         }
