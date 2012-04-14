@@ -10,6 +10,46 @@ const int GB_LCD_LY_MAX = 153;
 const int GB_LCD_WX_MAX = 166;
 const int GB_LCD_WY_MAX = 143;
 
+const int cycles_per_instruction[] = { 
+ // 0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+    1, 3, 2, 2, 1, 1, 2, 1, 5, 2, 2, 2, 1, 1, 2, 1, // 0
+    1, 3, 2, 2, 1, 1, 2, 1, 3, 2, 2, 2, 1, 1, 2, 1, // 1
+    2, 3, 2, 2, 1, 1, 2, 1, 2, 2, 2, 2, 1, 1, 2, 1, // 2
+    2, 3, 2, 2, 3, 3, 3, 1, 2, 2, 2, 2, 1, 1, 2, 1, // 3
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 4
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 5
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 6
+    2, 2, 2, 2, 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 2, 1, // 7
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 8
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 9
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // a
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 0, 1, 2, 1, // b
+    2, 3, 3, 4, 3, 4, 2, 4, 2, 4, 3, 2, 3, 6, 2, 4, // c
+    2, 3, 3, 1, 3, 4, 2, 4, 2, 4, 3, 1, 3, 1, 2, 4, // d
+    3, 3, 2, 1, 1, 4, 2, 4, 4, 1, 4, 1, 1, 1, 2, 4, // e
+    3, 3, 2, 1, 1, 4, 2, 4, 3, 2, 4, 1, 0, 1, 2, 4  // f
+};
+
+const int cycles_per_instruction_cb[] = {
+ // 0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 0
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 1
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 2
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 3
+    2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, // 4
+    2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, // 5
+    2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, // 6
+    2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, // 7
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 8
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 9
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // a
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // b
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // c
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // d
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // e
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2  // f
+};
+
 
 GBC::GBC(u8 *rom_data, int rom_type) {
     rom = rom_data;
@@ -24,6 +64,8 @@ GBC::~GBC(void) {
 }
 
 void GBC::reset_state(void) {
+    cycles = 0;
+
     AF = 0x01B0;
     BC = 0x0013;
     DE = 0x00D8;
@@ -109,16 +151,53 @@ void GBC::print_regs(void) {
     printf("\t%04x\t%04x\t%04x\t%04x\t%04x\t%04x\t\t%04x\n\n", AF, BC, DE, HL, sp, pc, io_lcd_LY);
 }
 
-int GBC::do_cycle(void) {
+void GBC::handle_interrupts(void) {
+    // Does NOT check for interupts enabled master.
+    u8 interrupts = interrupts_enable & interrupts_request;
+
+    printf("Executing interrupt %d.\n", interrupts);
+
+    for (int i = 0; i < 5; i++) {
+        if (interrupts & (1 << i)) {
+            interrupts_master_enabled = 0;
+            interrupts_request ^= 1 << i;
+
+            mem_write(--sp, (pc & 0xff00) >> 8);
+            mem_write(--sp,  pc & 0x00ff);
+
+            pc = i * 0x8 + 0x40;
+
+            return;
+        }
+    }
+}
+
+void handle_LCD(void) {
+    // The LCD goes through several states.
+    // 0 = HBlank, 1 = VBlank, 2 = reading OAM, 3 = reading OAM and VRAM
+    // 2 and 3 are between each HBlank
+    // So the cycle goes like: 233000233000233000233000111111233000
+    //                         OBBHHHOBBHHHOBBHHHOBBHHHVVVVVVOBBHHH
+    // The entire cycle takes 70224 clks. (so that's about 60FPS)
+    // HBlank takes about 201-207 cycles. VBlank 4560 clks.
+    // 2 takes about 77-83 and 3 about 169-175 clks.
+}
+
+int GBC::do_instruction(void) {
     // TODO:
     // * interrupts
     // * LY
     // * timer
 
-    u8 op = rom[pc++];
-
+    u8 op;
     u8 temp1, temp2;
     s8 stemp;
+
+    if (interrupts_master_enabled && interrupts_enable & interrupts_request)
+        handle_interrupts();
+
+    op = rom[pc++];
+    cycles += cycles_per_instruction[op];
 
     switch (op) {
     case 0x00: // NOP
@@ -165,6 +244,7 @@ int GBC::do_cycle(void) {
         break;
     case 0xcb: // EXTENDED INSTRUCTION
         op = rom[pc++];
+        cycles += cycles_per_instruction_cb[op];
         switch (op) {
         case 0x87: // RES 0, A (reset bit 0 to 0 in A)
             A(A() & ~(1 << 0));

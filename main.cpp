@@ -30,6 +30,11 @@ void read_file(char *filename, u8 **src, size_t *size) {
     rewind(fp);
 
     *src = (u8 *)malloc(allocsize * sizeof(u8));
+    if (*src == NULL) {
+        printf("Error while allocating memory for reading file.");
+        fclose(fp);
+        return;
+    }
     *size = fread(*src, sizeof(u8), allocsize, fp);
     fclose(fp);
 }
@@ -51,21 +56,21 @@ int main(void) {
     printf("==========================\n\n");
 
     int ret = 0;
-    int i = 0;
     int seconds_to_emulate, cycles_to_emulate;
     seconds_to_emulate = 100;
     cycles_to_emulate = 4194304 * seconds_to_emulate;
     struct timeval starttime, endtime;
     gettimeofday(&starttime, NULL);
     
-    while (!ret && i < cycles_to_emulate) {
+    while (!ret && emu.cycles < cycles_to_emulate) {
         //emu.print_regs();
         //disassemble(file, emu.pc);
-        ret = emu.do_cycle();
-        i++;
+        ret = emu.do_instruction();
     }
 
     gettimeofday(&endtime, NULL);
+
+    emu.print_regs();
 
     int t_usec = endtime.tv_usec - starttime.tv_usec;
     int t_sec = endtime.tv_sec - starttime.tv_sec;

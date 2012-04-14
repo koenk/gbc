@@ -13,12 +13,15 @@ public:
     void reset_state(void);
     void print_header_info(void);
     void print_regs(void);
-    int do_cycle(void);
+    int do_instruction(void);
 
     u16 pc;
+    int cycles;
 private:
     u16 mem_read(u16 location);
     void mem_write(u16 location, u16 value);
+    void handle_interrupts(void);
+    void handle_LCD(void);
 
     inline u8 A(void) { return AF >> 8; };
     inline void A(u8 n) { AF = (AF & 0xff) | (n << 8); }
