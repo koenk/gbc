@@ -66,7 +66,7 @@ int main(void) {
     while (!ret && emu.cycles < cycles_to_emulate) {
         if (emu.pc > 0x6f && (emu.pc < 0x1f80 || emu.pc > 0x1f86) && (emu.pc < 0x36e2 || emu.pc > 0x36e7)) {
             emu.print_regs();
-            disassemble(file, emu.pc);
+            disassemble(emu.pc, &GBC::mem_read);
         }
         ret = emu.do_instruction();
         instr++;

@@ -109,16 +109,21 @@ static GBOPCODE cbOpcodes[] = {
   { 0x00, 0x00, "DB CBh,%B" }
 };
 
-int disassemble(u8 *rom, u16 pc) {
+static u8 *bootblock_rom;
+u8 bootblock_mem_read(u16 location) {
+    return bootblock_rom[location];
+}
+
+int disassemble(u16 pc, u8 (GBC::*mem_read)(u16)) {
     u16 old_pc = pc;
-    u8 opcode = rom[pc++];
+    u8 opcode = (*mem_read)(pc++);
     GBOPCODE *op = NULL;
     const char *mnem = NULL;
     
     if (opcode == 0xcb) {
         // extended instruction
         op = cbOpcodes;
-        opcode = rom[pc++];
+        opcode = mem_read(pc++);
     } else {
         op = opcodes;
     }
@@ -135,20 +140,20 @@ int disassemble(u8 *rom, u16 pc) {
             mnem++;
             switch(*mnem) {
             case 'B': // Single byte
-                temp1 = rom[pc++];
+                temp1 = mem_read(pc++);
                 printf("0x%x", temp1);
                 break;
             case 'W': // Word (two bytes)
-                temp1 = rom[pc++];
-                temp2 = rom[pc++];
+                temp1 = mem_read(pc++);
+                temp2 = mem_read(pc++);
                 printf("0x%x", temp1 | (temp2 << 8));
                 break;
             case 'd': // Displacement (one byte)
-                stemp = rom[pc++];
+                stemp = mem_read(pc++);
                 printf("%d", stemp);
                 break;
             case 'n': // Single byte, no 0x prefix
-                temp1 = rom[pc++];
+                temp1 = mem_read(pc++);
                 printf("%02x", temp1);
                 break;
             case 'r': // Register name
@@ -186,9 +191,11 @@ int disassemble(u8 *rom, u16 pc) {
 void disassemble_bootblock(u8 *rom) {
     printf("Disassembling bootblock @ 0x100:\n\n");
 
+    bootblock_rom = rom;
+
     u16 pc = 0x100;
     while (pc < 0x104)
-        pc += disassemble(rom, pc);
+        pc += disassemble(pc, bootblock_mem_read);
 
     putc('\n', stdout);
 }

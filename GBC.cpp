@@ -113,6 +113,35 @@ void GBC::reset_state(void) {
     io_serial_data    = 0x00;
     io_serial_control = 0x00;
 
+
+    io_sound_enabled = 0xf1;
+    io_sound_out_terminal = 0xf3;
+    io_sound_terminal_control = 0x77;
+
+    io_sound_channel1_sweep = 0x80;
+    io_sound_channel1_length_pattern = 0xbf;
+    io_sound_channel1_envelope = 0xf3;
+    io_sound_channel1_freq_lo = 0x00;
+    io_sound_channel1_freq_hi = 0xbf;
+
+    io_sound_channel2_length_pattern = 0x3f;
+    io_sound_channel2_envelope = 0x00;
+    io_sound_channel2_freq_lo = 0x00;
+    io_sound_channel2_freq_hi = 0xbf;
+
+    io_sound_channel3_enabled = 0x7f;
+    io_sound_channel3_length = 0xff;
+    io_sound_channel3_level = 0x9f;
+    io_sound_channel3_freq_lo = 0x00;
+    io_sound_channel3_freq_hi = 0xbf;
+    memset(io_sound_channel3_ram, 0, 0xf);
+
+    io_sound_channel4_length = 0xff;
+    io_sound_channel4_envelope = 0x00;
+    io_sound_channel4_poly = 0x00;
+    io_sound_channel4_consec_initial = 0xbf;
+    
+
     mem_bank_rom = 1;
     mem_bank_ram = 0;
     mem_bank_wram = 1;
@@ -225,32 +254,45 @@ void GBC::handle_LCD(int op_cycles) {
     lcd_mode_clks_left -= op_cycles;
 
     if (lcd_mode_clks_left < 0) {
-        switch (io_lcd_LCDC & 3) {
+        switch (io_lcd_STAT & 3) {
         case 0: // HBlank
             if (io_lcd_LY == 143) { // Go into VBlank (1)
-                io_lcd_LCDC = (io_lcd_LCDC & 0xfc) | 1;
+                io_lcd_STAT = (io_lcd_STAT & 0xfc) | 1;
                 lcd_mode_clks_left = GB_LCD_MODE_1_CLKS;
+                interrupts_request |= 1 << 0;
             } else { // Back into OAM (2)
-                io_lcd_LCDC = (io_lcd_LCDC & 0xfc) | 2;
+                io_lcd_STAT = (io_lcd_STAT & 0xfc) | 2;
                 lcd_mode_clks_left = GB_LCD_MODE_2_CLKS;
             }
             io_lcd_LY = (io_lcd_LY + 1) % (GB_LCD_LY_MAX + 1);
+            io_lcd_STAT = (io_lcd_STAT & 0xfb) | (io_lcd_LY == io_lcd_LYC);
             break;
         case 1: // VBlank, Back to OAM (2)
-            io_lcd_LCDC = (io_lcd_LCDC & 0xfc) | 2;
+            io_lcd_STAT = (io_lcd_STAT & 0xfc) | 2;
             lcd_mode_clks_left = GB_LCD_MODE_2_CLKS;
             break;
         case 2: // OAM, onto OAM+VRAM (3)
-            io_lcd_LCDC = (io_lcd_LCDC & 0xfc) | 3;
+            io_lcd_STAT = (io_lcd_STAT & 0xfc) | 3;
             lcd_mode_clks_left = GB_LCD_MODE_3_CLKS;
             break;
         case 3: // OAM+VRAM, let's HBlank (0)
-            io_lcd_LCDC = (io_lcd_LCDC & 0xfc) | 0;
+            io_lcd_STAT = (io_lcd_STAT & 0xfc) | 0;
             lcd_mode_clks_left = GB_LCD_MODE_0_CLKS;
             break;
         }
     }
     
+    if (io_lcd_STAT & (1 << 6) && io_lcd_STAT & (1 << 2)) // LY=LYC inter
+        interrupts_request |= 1 << 1;
+
+    if (io_lcd_STAT & (1 << 5) && io_lcd_STAT & 3 == 2) // Mode 2 inter
+        interrupts_request |= 1 << 1;
+
+    if (io_lcd_STAT & (1 << 4) && io_lcd_STAT & 3 == 1) // Mode 1 inter
+        interrupts_request |= 1 << 1;
+
+    if (io_lcd_STAT & (1 << 3) && io_lcd_STAT & 3 == 0) // Mode 0 inter
+        interrupts_request |= 1 << 1;
 }
 
 int GBC::do_instruction(void) {
@@ -262,8 +304,10 @@ int GBC::do_instruction(void) {
     s8 stemp;
     int op_cycles;
 
-    if (interrupts_master_enabled && interrupts_enable & interrupts_request)
+    if (interrupts_master_enabled && interrupts_enable & interrupts_request) {
         handle_interrupts();
+        return 0; // temp?
+    }
 
     op = mem_read(pc++);
     op_cycles = cycles_per_instruction[op];
@@ -296,9 +340,43 @@ int GBC::do_instruction(void) {
     case 0x0b: // DEC BC
         BC--;
         break;
+    case 0x0c: // INC C
+        C(C() + 1);
+        F((C() == 0 ? FLAG_Z : 0) |
+            0 |
+            (C() & 0xf == 0xf ? FLAG_H : 0) |
+            F() & FLAG_C);
+        break;
+    case 0x0e: // LD C, nn
+        temp1 = mem_read(pc++);
+        C(temp1);
+        break;
+    case 0x11: // LD DE, nnnn
+        temp1 = mem_read(pc++);
+        temp2 = mem_read(pc++);
+        DE = temp1 | (temp2 << 8);
+        break;
+    case 0x15: // DEC D
+        D(D() - 1);
+        F((D() == 0 ? FLAG_Z : 0) |
+            FLAG_N |
+            (D() & 0xf == 0xf ? FLAG_H : 0) |
+            F() & FLAG_C);
+        break;
+    case 0x16: // LD D, nn
+        temp1 = mem_read(pc++);
+        D(temp1);
+        break;
     case 0x18: // JR nn (offset)
         stemp = mem_read(pc++);
         pc += stemp;
+        break;
+    case 0x1d: // DEC E
+        E(E() - 1);
+        F((E() == 0 ? FLAG_Z : 0) |
+            FLAG_N |
+            (E() & 0xf == 0xf ? FLAG_H : 0) |
+            F() & FLAG_C);
         break;
     case 0x20: // JR NZ, nn (offset)
         if (!(AF & FLAG_Z)) {
@@ -319,6 +397,10 @@ int GBC::do_instruction(void) {
     case 0x23: // INC HL
         HL++;
         break;
+    case 0x26: // LD H, nn
+        temp1 = mem_read(pc++);
+        H(temp1);
+        break;
     case 0x28: // JR Z, nn (offset)
         if (AF & FLAG_Z) {
             stemp = mem_read(pc++);
@@ -326,6 +408,9 @@ int GBC::do_instruction(void) {
         } else {
             pc++;
         }
+        break;
+    case 0x2a: // LDI A, (HL)
+        A(mem_read(HL));
         break;
     case 0x31: // LD sp, nnnn
         temp1 = mem_read(pc++);
@@ -340,17 +425,36 @@ int GBC::do_instruction(void) {
         temp1 = mem_read(pc++);
         A(temp1);
         break;
+    case 0x3d: // DEC A
+        A(A() - 1);
+        F((A() == 0 ? FLAG_Z : 0) |
+            FLAG_N |
+            (A() & 0xf == 0xf ? FLAG_H : 0) |
+            F() & FLAG_C);
+        break;
+    case 0x42: // LD B, D
+        B(D());
+        break;
     case 0x47: // LD B, A
         B(A());
         break;
     case 0x57: // LD D, A
         D(A());
         break;
+    case 0x6b: // LD L, E
+        L(E());
+        break;
     case 0x78: // LD A, B
         A(B());
         break;
     case 0x7a: // LD A, D
         A(D());
+        break;
+    case 0xa7: // AND A
+        F((A() == 0 ? FLAG_Z : 0) |
+            0 |
+            FLAG_H |
+            0);
         break;
     case 0xaf: // XOR a (so clear a)
         A(0);
@@ -359,15 +463,41 @@ int GBC::do_instruction(void) {
         A(A() | C());
         F(A() == 0 ? FLAG_Z : 0);
         break;
+    case 0xc1: // POP BC
+        temp1 = mem_read(sp++);
+        temp2 = mem_read(sp++);
+
+        BC = temp1 | (temp2 << 8);
+        break;
     case 0xc3: // JP nnnn
         temp1 = mem_read(pc++);
         temp2 = mem_read(pc++);
         pc = temp1 | (temp2 << 8);
         break;
+    case 0xc5: // PUSH BC
+        mem_write(--sp, (BC & 0xff00) >> 8);
+        mem_write(--sp,  BC & 0x00ff);
+        break;
+    case 0xc8: // RET Z
+        if (F() & FLAG_Z) {
+            temp1 = mem_read(sp++);
+            temp2 = mem_read(sp++);
+            pc = temp1 | (temp2 << 8);
+        }
+        break;
     case 0xc9: // RET
         temp1 = mem_read(sp++);
         temp2 = mem_read(sp++);
         pc = temp1 | (temp2 << 8);
+        break;
+    case 0xca: // JP Z, nnnn
+        if (AF & FLAG_Z) {
+            temp1 = mem_read(pc++);
+            temp2 = mem_read(pc++);
+            pc = temp1 | (temp2 << 8);
+        } else {
+            pc += 2;
+        }
         break;
     case 0xcb: // EXTENDED INSTRUCTION
         op = mem_read(pc++);
@@ -403,6 +533,19 @@ int GBC::do_instruction(void) {
         temp1 = mem_read(pc++);
         mem_write(0xff00 | temp1, A());
         break;
+    case 0xe1: // POP HL
+        temp1 = mem_read(sp++);
+        temp2 = mem_read(sp++);
+
+        HL = temp1 | (temp2 << 8);
+        break;
+    case 0xe2: // LD 0xff00+C, A
+        mem_write(0xff00 + C(), A());
+        break;
+    case 0xe5: // PUSH HL
+        mem_write(--sp, (HL & 0xff00) >> 8);
+        mem_write(--sp,  HL & 0x00ff);
+        break;
     case 0xe6: // AND nn
         temp1 = mem_read(pc++);
         A(A() & temp1);
@@ -422,6 +565,18 @@ int GBC::do_instruction(void) {
         break;
     case 0xf3: // DI
         interrupts_master_enabled = 0;
+        break;
+    case 0xf5: // PUSH AF
+        mem_write(--sp, (AF & 0xff00) >> 8);
+        mem_write(--sp,  AF & 0x00ff);
+        break;
+    case 0xfa: // LD A, (nnnn)
+        temp1 = mem_read(pc++);
+        temp2 = mem_read(pc++);
+        A(mem_read(temp1 | (temp2 << 8)));
+        break;
+    case 0xfb: // EI
+        interrupts_master_enabled = true;
         break;
     case 0xfe: // CP nn
         temp1 = mem_read(pc++);
@@ -453,8 +608,6 @@ void GBC::mem_write(u16 location, u8 value) {
     case 0x3000:
         printf("ROM bank number\n");
         mem_bank_rom = value;
-        if (value != 1)
-            pause();
         break;
     case 0x4000: // 4000 - 5FFF
     case 0x5000:
@@ -532,9 +685,97 @@ void GBC::mem_write(u16 location, u8 value) {
                 printf("Int Req\n");
                 interrupts_request = value;
                 break;
+            case 0xff10:
+                printf("Sound channel 1 sweep\n");
+                io_sound_channel1_sweep = value;
+                break;
+            case 0xff11:
+                printf("Sound channel 1 length/pattern\n");
+                io_sound_channel1_length_pattern = value;
+                break;
+            case 0xff12:
+                printf("Sound channel 1 envelope\n");
+                io_sound_channel1_envelope = value;
+                break;
+            case 0xff13:
+                printf("Sound channel 1 freq lo\n");
+                io_sound_channel1_freq_lo = value;
+                break;
+            case 0xff14:
+                printf("Sound channel 1 freq hi\n");
+                io_sound_channel1_freq_hi = value;
+                break;
+            case 0xff16:
+                printf("Sound channel 2 length/pattern\n");
+                io_sound_channel2_length_pattern = value;
+                break;
+            case 0xff17:
+                printf("Sound channel 2 envelope\n");
+                io_sound_channel2_envelope = value;
+                break;
+            case 0xff18:
+                printf("Sound channel 2 freq lo\n");
+                io_sound_channel2_freq_lo = value;
+                break;
+            case 0xff19:
+                printf("Sound channel 2 freq hi\n");
+                io_sound_channel2_freq_hi = value;
+                break;
+            case 0xff1a:
+                printf("Sound channel 3 enabled\n");
+                io_sound_channel3_enabled = value;
+                break;
+            case 0xff1b:
+                printf("Sound channel 3 length\n");
+                io_sound_channel3_length = value;
+                break;
+            case 0xff1c:
+                printf("Sound channel 3 level\n");
+                io_sound_channel3_level = value;
+                break;
+            case 0xff1d:
+                printf("Sound channel 3 freq lo\n");
+                io_sound_channel3_freq_lo = value;
+                break;
+            case 0xff1e:
+                printf("Sound channel 3 freq hi\n");
+                io_sound_channel3_freq_hi = value;
+                break;
+            case 0xff20:
+                printf("Sound channel 4 length\n");
+                io_sound_channel4_length = value;
+                break;
+            case 0xff21:
+                printf("Sound channel 4 envelope\n");
+                io_sound_channel4_envelope = value;
+                break;
+            case 0xff22:
+                printf("Sound channel 4 polynomial counter\n");
+                io_sound_channel4_poly = value;
+                break;
+            case 0xff23:
+                printf("Sound channel 4 Counter/consecutive; Inital\n");
+                io_sound_channel4_consec_initial = value;
+                break;
+            case 0xff24:
+                printf("Sound channel control\n");
+                io_sound_terminal_control = value;
+                break;
+            case 0xff25:
+                printf("Sound output terminal\n");
+                io_sound_out_terminal = value;
+                break;
+            case 0xff26:
+                printf("Sound enabled flags\n");
+                io_sound_enabled = value;
+                break;
             case 0xff40:
                 printf("LCD Control\n");
                 io_lcd_LCDC = value;
+                break;
+            case 0xff41:
+                printf("LCD Stat\n");
+                io_lcd_STAT = value;
                 break;
             case 0xff42:
                 printf("Scroll Y\n");
@@ -546,11 +787,13 @@ void GBC::mem_write(u16 location, u8 value) {
                 break;
             case 0xff44:
                 printf("LCD LY\n");
-                //io_lcd_LY = 0x0
+                io_lcd_LY = 0x0;
+                io_lcd_STAT = (io_lcd_STAT & 0xfb) | (io_lcd_LY == io_lcd_LYC);
                 break;
             case 0xff45:
                 printf("LCD LYC\n");
                 io_lcd_LYC = value;
+                io_lcd_STAT = (io_lcd_STAT & 0xfb) | (io_lcd_LY == io_lcd_LYC);
                 break;
             case 0xff47:
                 printf("Background palette\n");
@@ -613,7 +856,7 @@ u8 GBC::mem_read(u16 location) {
     case 0x5000:
     case 0x6000:
     case 0x7000:
-        printf("CA ROM switchable\n");
+        printf("CA ROM switchable, bank %d, %4x\n", mem_bank_rom, mem_bank_rom * 0x4000 + (location - 0x4000));
         return rom[mem_bank_rom * 0x4000 + (location - 0x4000)];
         break;
     case 0x8000: // 8000 - 9FFF
@@ -676,6 +919,24 @@ u8 GBC::mem_read(u16 location) {
             case 0xff0f:
                 printf("Int Reqs\n");
                 return interrupts_request;
+            case 0xff10:
+                printf("Sound channel 1 sweep\n");
+                return io_sound_channel1_sweep;
+            case 0xff12:
+                printf("Sound channel 1 envelope\n");
+                return io_sound_channel1_envelope;
+            case 0xff1a:
+                printf("Sound channel 3 enabled\n");
+                return io_sound_channel3_enabled;
+            case 0xff1c:
+                printf("Sound channel 3 level\n");
+                return io_sound_channel3_level;
+            case 0xff25:
+                printf("Sound output terminal\n");
+                return io_sound_out_terminal;
+            case 0xff26:
+                printf("Sound enabled flags\n");
+                return io_sound_enabled;
             case 0xff40:
                 printf("LCD Control\n");
                 return io_lcd_LCDC;

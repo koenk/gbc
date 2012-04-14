@@ -15,10 +15,11 @@ public:
     void print_regs(void);
     int do_instruction(void);
 
+    u8 mem_read(u16 location);
+
     u16 pc;
     long cycles;
 private:
-    u8 mem_read(u16 location);
     void mem_write(u16 location, u8 value);
     void handle_interrupts(void);
     void handle_LCD(int op_cycles);
@@ -35,6 +36,10 @@ private:
     inline void D(u8 n) { DE = (DE & 0xff) | (n << 8); }
     inline u8 E(void) { return DE & 0xff; };
     inline void E(u8 n) { DE = (DE & 0xff00) | n; }
+    inline u8 H(void) { return HL >> 8; };
+    inline void H(u8 n) { HL = (HL & 0xff) | (n << 8); }
+    inline u8 L(void) { return HL & 0xff; };
+    inline void L(u8 n) { HL = (HL & 0xff00) | n; }
 
     static const u8 FLAG_C = 0x10;
     static const u8 FLAG_H = 0x20;
@@ -63,7 +68,8 @@ private:
     u8 io_lcd_BGP;
     u8 io_lcd_OBP0;
     u8 io_lcd_OBP1;
-    u8 io_lcd_LCDC; // LCD Status. 0-1 = mode, 2 = LYC==LY, 3 = M0 interrupt, 4 = M1 inter, 5 = M2 inter, 6 = LY=LYC inter
+    u8 io_lcd_LCDC; // LCD Control. 0 = BG, 1 = OBJ, 2 = OBJ-size, 3 = BG tilemap, 4 = BG+Win tilemap, 5 = window, 6 = window tilemap, 7 = lcd enable
+    u8 io_lcd_STAT; // LCD Status. 0-1 = mode, 2 = LYC==LY, 3 = M0 interrupt, 4 = M1 inter, 5 = M2 inter, 6 = LY=LYC inter
     u8 io_lcd_LY;   // LCD Y line
     u8 io_lcd_LYC;  // LCD Y line compare
 
@@ -74,6 +80,35 @@ private:
 
     u8 io_serial_data;
     u8 io_serial_control;
+
+
+    u8 io_sound_enabled;
+    u8 io_sound_out_terminal;
+    u8 io_sound_terminal_control;
+
+    u8 io_sound_channel1_sweep;
+    u8 io_sound_channel1_length_pattern;
+    u8 io_sound_channel1_envelope;
+    u8 io_sound_channel1_freq_lo;
+    u8 io_sound_channel1_freq_hi;
+
+    u8 io_sound_channel2_length_pattern;
+    u8 io_sound_channel2_envelope;
+    u8 io_sound_channel2_freq_lo;
+    u8 io_sound_channel2_freq_hi;
+    
+    u8 io_sound_channel3_enabled;
+    u8 io_sound_channel3_length;
+    u8 io_sound_channel3_level;
+    u8 io_sound_channel3_freq_lo;
+    u8 io_sound_channel3_freq_hi;
+    u8 io_sound_channel3_ram[0xf];
+
+    u8 io_sound_channel4_length;
+    u8 io_sound_channel4_envelope;
+    u8 io_sound_channel4_poly;
+    u8 io_sound_channel4_consec_initial;
+    
 
     int mem_bank_rom, mem_bank_ram, mem_bank_wram;
 
