@@ -265,16 +265,10 @@ int GBC::do_instruction(void) {
     if (interrupts_master_enabled && interrupts_enable & interrupts_request)
         handle_interrupts();
 
-    if (pc > 0x3fff) {
-        printf("Program counter (%d) out of normal ROM bank 0 -- We need that thing bank switched now?\n", pc);
-        pause();
-        return 1;
-    }
-
-    op = rom[pc++];
+    op = mem_read(pc++);
     op_cycles = cycles_per_instruction[op];
     if (op == 0xcb)
-        op_cycles = cycles_per_instruction_cb[rom[pc + 1]];
+        op_cycles = cycles_per_instruction_cb[mem_read(pc + 1)];
 
     handle_LCD(op_cycles);
     cycles += op_cycles;
@@ -283,8 +277,8 @@ int GBC::do_instruction(void) {
     case 0x00: // NOP
         break;
     case 0x01: // LD BC, nnnn
-        temp1 = rom[pc++];
-        temp2 = rom[pc++];
+        temp1 = mem_read(pc++);
+        temp2 = mem_read(pc++);
         BC = temp1 | (temp2 << 8);
         break;
     case 0x05: // DEC B
@@ -296,27 +290,27 @@ int GBC::do_instruction(void) {
 
         break;
     case 0x06: // LD B, nn
-        temp1 = rom[pc++];
+        temp1 = mem_read(pc++);
         B(temp1);
         break;
     case 0x0b: // DEC BC
         BC--;
         break;
     case 0x18: // JR nn (offset)
-        stemp = rom[pc++];
+        stemp = mem_read(pc++);
         pc += stemp;
         break;
     case 0x20: // JR NZ, nn (offset)
         if (!(AF & FLAG_Z)) {
-            stemp = rom[pc++];
+            stemp = mem_read(pc++);
             pc += stemp;
         } else {
             pc++;
         }
         break;
     case 0x21: // LD HL, nnnn
-        temp1 = rom[pc++];
-        temp2 = rom[pc++];
+        temp1 = mem_read(pc++);
+        temp2 = mem_read(pc++);
         HL = temp1 | (temp2 << 8);
         break;
     case 0x22: // LDI (HL), A
@@ -327,23 +321,23 @@ int GBC::do_instruction(void) {
         break;
     case 0x28: // JR Z, nn (offset)
         if (AF & FLAG_Z) {
-            stemp = rom[pc++];
+            stemp = mem_read(pc++);
             pc += stemp;
         } else {
             pc++;
         }
         break;
     case 0x31: // LD sp, nnnn
-        temp1 = rom[pc++];
-        temp2 = rom[pc++];
+        temp1 = mem_read(pc++);
+        temp2 = mem_read(pc++);
         sp = temp1 | (temp2 << 8);
         break;
     case 0x36: // LD (HL), nn
-        temp1 = rom[pc++];
+        temp1 = mem_read(pc++);
         mem_write(HL, temp1);
         break;
     case 0x3e: // LD a, nn
-        temp1 = rom[pc++];
+        temp1 = mem_read(pc++);
         A(temp1);
         break;
     case 0x47: // LD B, A
@@ -366,8 +360,8 @@ int GBC::do_instruction(void) {
         F(A() == 0 ? FLAG_Z : 0);
         break;
     case 0xc3: // JP nnnn
-        temp1 = rom[pc++];
-        temp2 = rom[pc++];
+        temp1 = mem_read(pc++);
+        temp2 = mem_read(pc++);
         pc = temp1 | (temp2 << 8);
         break;
     case 0xc9: // RET
@@ -376,7 +370,7 @@ int GBC::do_instruction(void) {
         pc = temp1 | (temp2 << 8);
         break;
     case 0xcb: // EXTENDED INSTRUCTION
-        op = rom[pc++];
+        op = mem_read(pc++);
         switch (op) {
         case 0x87: // RES 0, A (reset bit 0 to 0 in A)
             A(A() & ~(1 << 0));
@@ -387,8 +381,8 @@ int GBC::do_instruction(void) {
         }
         break;
     case 0xcd: // CALL nnnn
-        temp1 = rom[pc++];
-        temp2 = rom[pc++];
+        temp1 = mem_read(pc++);
+        temp2 = mem_read(pc++);
 
         mem_write(--sp, (pc & 0xff00) >> 8);
         mem_write(--sp,  pc & 0x00ff);
@@ -406,11 +400,11 @@ int GBC::do_instruction(void) {
         mem_write(--sp,  DE & 0x00ff);
         break;
     case 0xe0: // LD (ffnn), A
-        temp1 = rom[pc++];
+        temp1 = mem_read(pc++);
         mem_write(0xff00 | temp1, A());
         break;
     case 0xe6: // AND nn
-        temp1 = rom[pc++];
+        temp1 = mem_read(pc++);
         A(A() & temp1);
         F((A() == 0) ? FLAG_Z : 0 |
           0 |
@@ -418,19 +412,19 @@ int GBC::do_instruction(void) {
           0);
         break;
     case 0xea: // LD (nnnn), A
-        temp1 = rom[pc++];
-        temp2 = rom[pc++];
+        temp1 = mem_read(pc++);
+        temp2 = mem_read(pc++);
         mem_write(temp1 | (temp2 << 8), A());
         break;
     case 0xf0: // LD A, (ffnn)
-        temp1 = rom[pc++];
+        temp1 = mem_read(pc++);
         A(mem_read(0xff00 | temp1));
         break;
     case 0xf3: // DI
         interrupts_master_enabled = 0;
         break;
     case 0xfe: // CP nn
-        temp1 = rom[pc++];
+        temp1 = mem_read(pc++);
         stemp = A() - temp1;
         F((stemp == 0 ? FLAG_Z : 0) | 
           FLAG_N |
@@ -613,14 +607,14 @@ u8 GBC::mem_read(u16 location) {
     case 0x1000:
     case 0x2000:
     case 0x3000:
-        printf("CA ROM fixed\n");
+        //printf("CA ROM fixed\n");
         return rom[location];
     case 0x4000: // 4000 - 7FFF
     case 0x5000:
     case 0x6000:
     case 0x7000:
         printf("CA ROM switchable\n");
-        pause();
+        return rom[mem_bank_rom * 0x4000 + (location - 0x4000)];
         break;
     case 0x8000: // 8000 - 9FFF
     case 0x9000:
