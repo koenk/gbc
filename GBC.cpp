@@ -10,6 +10,11 @@ const int GB_LCD_LY_MAX = 153;
 const int GB_LCD_WX_MAX = 166;
 const int GB_LCD_WY_MAX = 143;
 
+const int GB_LCD_MODE_0_CLKS = 204;
+const int GB_LCD_MODE_1_CLKS = 4560; 
+const int GB_LCD_MODE_2_CLKS = 80;
+const int GB_LCD_MODE_3_CLKS = 172;
+
 const int cycles_per_instruction[] = { 
  // 0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
     1, 3, 2, 2, 1, 1, 2, 1, 5, 2, 2, 2, 1, 1, 2, 1, // 0
@@ -23,8 +28,8 @@ const int cycles_per_instruction[] = {
     1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 8
     1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 9
     1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // a
-    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 0, 1, 2, 1, // b
-    2, 3, 3, 4, 3, 4, 2, 4, 2, 4, 3, 2, 3, 6, 2, 4, // c
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1, 2, 1, // b
+    2, 3, 3, 4, 3, 4, 2, 4, 2, 4, 3, 0, 3, 6, 2, 4, // c
     2, 3, 3, 1, 3, 4, 2, 4, 2, 4, 3, 1, 3, 1, 2, 4, // d
     3, 3, 2, 1, 1, 4, 2, 4, 4, 1, 4, 1, 1, 1, 2, 4, // e
     3, 3, 2, 1, 1, 4, 2, 4, 3, 2, 4, 1, 0, 1, 2, 4  // f
@@ -84,6 +89,8 @@ void GBC::reset_state(void) {
     interrupts_master_enabled = 1;
     interrupts_enable  = 0x0;
     interrupts_request = 0x0;
+
+    lcd_mode_clks_left = 0;
 
     io_lcd_SCX  = 0x00;
     io_lcd_SCY  = 0x00;
@@ -172,32 +179,67 @@ void GBC::handle_interrupts(void) {
     }
 }
 
-void handle_LCD(void) {
+void GBC::handle_LCD(int op_cycles) {
     // The LCD goes through several states.
     // 0 = HBlank, 1 = VBlank, 2 = reading OAM, 3 = reading OAM and VRAM
     // 2 and 3 are between each HBlank
-    // So the cycle goes like: 233000233000233000233000111111233000
-    //                         OBBHHHOBBHHHOBBHHHOBBHHHVVVVVVOBBHHH
+    // So the cycle goes like: 2330002330002330002330001111..1111233000...
+    //                         OBBHHHOBBHHHOBBHHHOBBHHHVVVV..VVVVOBBHHH...
     // The entire cycle takes 70224 clks. (so that's about 60FPS)
     // HBlank takes about 201-207 cycles. VBlank 4560 clks.
     // 2 takes about 77-83 and 3 about 169-175 clks.
+
+    lcd_mode_clks_left -= op_cycles;
+
+    if (lcd_mode_clks_left < 0) {
+        switch (io_lcd_LCDC & 3) {
+        case 0: // HBlank
+            if (io_lcd_LY == 143) { // Go into VBlank (1)
+                io_lcd_LCDC = (io_lcd_LCDC & 0xfc) | 1;
+                lcd_mode_clks_left = GB_LCD_MODE_1_CLKS;
+            } else { // Back into OAM (2)
+                io_lcd_LCDC = (io_lcd_LCDC & 0xfc) | 2;
+                lcd_mode_clks_left = GB_LCD_MODE_2_CLKS;
+            }
+            io_lcd_LY = (io_lcd_LY + 1) % (GB_LCD_LY_MAX + 1);
+            break;
+        case 1: // VBlank, Back to OAM (2)
+            io_lcd_LCDC = (io_lcd_LCDC & 0xfc) | 2;
+            lcd_mode_clks_left = GB_LCD_MODE_2_CLKS;
+            break;
+        case 2: // OAM, onto OAM+VRAM (3)
+            io_lcd_LCDC = (io_lcd_LCDC & 0xfc) | 3;
+            lcd_mode_clks_left = GB_LCD_MODE_3_CLKS;
+            break;
+        case 3: // OAM+VRAM, let's HBlank (0)
+            io_lcd_LCDC = (io_lcd_LCDC & 0xfc) | 0;
+            lcd_mode_clks_left = GB_LCD_MODE_0_CLKS;
+            break;
+        }
+    }
+    
 }
 
 int GBC::do_instruction(void) {
     // TODO:
-    // * interrupts
     // * LY
     // * timer
 
     u8 op;
     u8 temp1, temp2;
     s8 stemp;
+    int op_cycles;
 
     if (interrupts_master_enabled && interrupts_enable & interrupts_request)
         handle_interrupts();
 
     op = rom[pc++];
-    cycles += cycles_per_instruction[op];
+    op_cycles = cycles_per_instruction[op];
+    if (op == 0xcb)
+        op_cycles = cycles_per_instruction_cb[rom[pc + 1]];
+
+    handle_LCD(op_cycles);
+    cycles += op_cycles;
 
     switch (op) {
     case 0x00: // NOP
@@ -234,6 +276,7 @@ int GBC::do_instruction(void) {
     case 0x47: // LD B, A
         B(A());
         break;
+
     case 0xaf: // XOR a (so clear a)
         A(0);
         break;
@@ -244,7 +287,6 @@ int GBC::do_instruction(void) {
         break;
     case 0xcb: // EXTENDED INSTRUCTION
         op = rom[pc++];
-        cycles += cycles_per_instruction_cb[op];
         switch (op) {
         case 0x87: // RES 0, A (reset bit 0 to 0 in A)
             A(A() & ~(1 << 0));
@@ -266,6 +308,14 @@ int GBC::do_instruction(void) {
     case 0xe0: // LD (ffnn), A
         temp1 = rom[pc++];
         mem_write(0xff00 | temp1, A());
+        break;
+    case 0xe6: // AND nn
+        temp1 = rom[pc++];
+        A(A() & temp1);
+        F((A() == 0) ? FLAG_Z : 0 |
+          0 |
+          FLAG_H | 
+          0);
         break;
     case 0xea: // LD (nnnn), A
         temp1 = rom[pc++];

@@ -56,6 +56,7 @@ int main(void) {
     printf("==========================\n\n");
 
     int ret = 0;
+    int instr = 0;
     int seconds_to_emulate, cycles_to_emulate;
     seconds_to_emulate = 100;
     cycles_to_emulate = 4194304 * seconds_to_emulate;
@@ -63,9 +64,12 @@ int main(void) {
     gettimeofday(&starttime, NULL);
     
     while (!ret && emu.cycles < cycles_to_emulate) {
-        //emu.print_regs();
-        //disassemble(file, emu.pc);
+        if (emu.pc > 0x6f) {
+            emu.print_regs();
+            disassemble(file, emu.pc);
+        }
         ret = emu.do_instruction();
+        instr++;
     }
 
     gettimeofday(&endtime, NULL);
@@ -76,7 +80,7 @@ int main(void) {
     int t_sec = endtime.tv_sec - starttime.tv_sec;
     double exectime = t_sec + (t_usec / 1000000.);
 
-    printf("\nEmulated %d sec in %f sec WCT, %f%%\n", seconds_to_emulate, exectime, seconds_to_emulate / exectime * 100);
+    printf("\nEmulated %f sec (%d instr) in %f sec WCT, %f%%\n", instr / 4194304., instr, exectime, seconds_to_emulate / exectime * 100);
 
     free(file);
 

@@ -21,7 +21,7 @@ private:
     u16 mem_read(u16 location);
     void mem_write(u16 location, u16 value);
     void handle_interrupts(void);
-    void handle_LCD(void);
+    void handle_LCD(int op_cycles);
 
     inline u8 A(void) { return AF >> 8; };
     inline void A(u8 n) { AF = (AF & 0xff) | (n << 8); }
@@ -40,6 +40,8 @@ private:
     int type;
     int freq;
 
+    int lcd_mode_clks_left;
+
     u16 AF, BC, DE, HL;
         
     u16 sp;
@@ -48,16 +50,16 @@ private:
     u8 interrupts_enable;
     u8 interrupts_request;
 
-    u8 io_lcd_SCX;
-    u8 io_lcd_SCY;
-    u8 io_lcd_WX;
-    u8 io_lcd_WY;
+    u8 io_lcd_SCX;  // Scroll X
+    u8 io_lcd_SCY;  // Scroll Y
+    u8 io_lcd_WX;   // Window X
+    u8 io_lcd_WY;   // Window Y
     u8 io_lcd_BGP;
     u8 io_lcd_OBP0;
     u8 io_lcd_OBP1;
-    u8 io_lcd_LCDC;
-    u8 io_lcd_LY;
-    u8 io_lcd_LYC;
+    u8 io_lcd_LCDC; // LCD Status. 0-1 = mode, 2 = LYC==LY, 3 = M0 interrupt, 4 = M1 inter, 5 = M2 inter, 6 = LY=LYC inter
+    u8 io_lcd_LY;   // LCD Y line
+    u8 io_lcd_LYC;  // LCD Y line compare
 
     u8 io_timer_DIV;
     u8 io_timer_TIMA;
