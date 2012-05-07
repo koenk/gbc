@@ -319,6 +319,7 @@ int GBC::do_instruction(void) {
     u8 op;
     u8 temp1, temp2;
     s8 stemp;
+    u16 ltemp;
     int op_cycles;
 
     if (interrupts_master_enabled && interrupts_enable & interrupts_request) {
@@ -418,6 +419,14 @@ int GBC::do_instruction(void) {
         stemp = mem_read(pc++);
         pc += stemp;
         break;
+    case 0x19: // ADD HL, DE
+        ltemp = (HL + DE) & 0xffff;
+        F((F() & FLAG_Z) |
+            0 |
+            ((HL ^ DE ^ ltemp) & 0x1000 ? FLAG_H : 0) |
+            (((long)HL + (long)DE) & 0x10000 ? FLAG_C : 0));
+        HL = ltemp;
+        break;
     case 0x1a: // LD A, (DE)
         A(mem_read(DE));
         break;
@@ -513,8 +522,14 @@ int GBC::do_instruction(void) {
     case 0x5f: // LD E, A
         E(A());
         break;
+    case 0x66: // LD H, (HL)
+        H(mem_read(HL));
+        break;
     case 0x6b: // LD L, E
         L(E());
+        break;
+    case 0x6f: // LD L, A
+        L(A());
         break;
     case 0x77: // LD (HL), A
         mem_write(HL, A());
@@ -1020,6 +1035,9 @@ void GBC::mem_write(u16 location, u8 value) {
 
         if (location < 0xffff) { // FF80 - FFFE
             printf("HRAM  @%x\n", location - 0xff80);
+            if (location == 0xffa0) {
+                printf("HRAM FFA0: %x\n", value);
+            }
             mem_HRAM[location - 0xff80] = value;
             break;
         }
