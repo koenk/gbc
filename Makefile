@@ -1,5 +1,5 @@
 PROGNAME = GBC
-OFILES = main.o GBC.o
+OFILES = main.o GBC.o disassembler.o
 
 CC = clang++ # or g++
 RM = rm -fv

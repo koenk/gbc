@@ -40,8 +40,8 @@ void read_file(char *filename, u8 **src, size_t *size) {
 }
 
 int main(void) {
-    char filename[] = "pkmn_blue.gb"; int rom_type = 0;
-    //char filename[] = "pkmn_silver.gbc"; int rom_type = 1;
+    //char filename[] = "pkmn_blue.gb"; int rom_type = 0;
+    char filename[] = "pkmn_silver.gbc"; int rom_type = 1;
     u8 *file;
     size_t filesize;
     read_file(filename, &file, &filesize);
@@ -49,11 +49,12 @@ int main(void) {
     GBC emu(file, rom_type);
     emu.print_header_info();
 
-    disassemble_bootblock(file);
+    disassemble_bootblock(emu);
     
     printf("==========================\n");
     printf("=== Starting execution ===\n");
     printf("==========================\n\n");
+
 
     int ret = 0;
     int instr = 0;
@@ -65,14 +66,17 @@ int main(void) {
     
     while (!ret && emu.cycles < cycles_to_emulate) {
         if (emu.pc > 0x6f && (emu.pc < 0x1f80 || emu.pc > 0x1f86) && (emu.pc < 0x36e2 || emu.pc > 0x36e7)) {
-            emu.print_regs();
-            disassemble(emu.pc, &GBC::mem_read);
+            //emu.print_regs();
+            disassemble(emu);
         }
         ret = emu.do_instruction();
         instr++;
     }
 
     gettimeofday(&endtime, NULL);
+
+    if (ret)
+        disassemble(emu);
 
     emu.print_regs();
 

@@ -60,14 +60,19 @@ private:
     bool interrupts_master_enabled;
     u8 interrupts_enable;
     u8 interrupts_request;
+    bool halt_for_interrupts;
 
     u8 io_lcd_SCX;  // Scroll X
     u8 io_lcd_SCY;  // Scroll Y
     u8 io_lcd_WX;   // Window X
     u8 io_lcd_WY;   // Window Y
-    u8 io_lcd_BGP;
-    u8 io_lcd_OBP0;
-    u8 io_lcd_OBP1;
+    u8 io_lcd_BGP;  // Background palette data (monochrome)
+    u8 io_lcd_OBP0; // Object palette 0 data (monochrome)
+    u8 io_lcd_OBP1; // Object palette 1 data (monochrome)
+    u8 io_lcd_BGPI; // Background palette index
+    u8 io_lcd_BGPD; // Background palette data
+    u8 io_lcd_OBPI; // Sprite palette index
+    u8 io_lcd_OBPD; // Sprite palette data
     u8 io_lcd_LCDC; // LCD Control. 0 = BG, 1 = OBJ, 2 = OBJ-size, 3 = BG tilemap, 4 = BG+Win tilemap, 5 = window, 6 = window tilemap, 7 = lcd enable
     u8 io_lcd_STAT; // LCD Status. 0-1 = mode, 2 = LYC==LY, 3 = M0 interrupt, 4 = M1 inter, 5 = M2 inter, 6 = LY=LYC inter
     u8 io_lcd_LY;   // LCD Y line
@@ -80,6 +85,12 @@ private:
 
     u8 io_serial_data;
     u8 io_serial_control;
+
+    u8 io_infrared;
+
+    u8 io_buttons;
+    u8 io_buttons_dirs;
+    u8 io_buttons_buttons;
 
 
     u8 io_sound_enabled;
@@ -110,12 +121,16 @@ private:
     u8 io_sound_channel4_consec_initial;
     
 
-    int mem_bank_rom, mem_bank_ram, mem_bank_wram;
+    int mem_bank_rom, mem_bank_wram, mem_bank_vram;
+    u8 mem_ram_rtc_select;
 
     u8 mem_RAM[4][0x2000];
     u8 mem_HRAM[0x7f];
     u8 mem_WRAM[8][0x1000];
+    u8 mem_VRAM[2][0x2000];
 
+    u8 mem_latch_rtc;
+    u8 mem_RTC[0x05]; // 0x08 - 0x0c
 };
 
 #endif

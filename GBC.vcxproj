@@ -71,6 +71,7 @@
     <ClInclude Include="wintime.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="disassembler.cpp" />
     <ClCompile Include="GBC.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>

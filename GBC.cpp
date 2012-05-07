@@ -88,7 +88,8 @@ void GBC::reset_state(void) {
         HL = 0x000d;
     }
 
-    interrupts_master_enabled = 1;
+    halt_for_interrupts = false;
+    interrupts_master_enabled = true;
     interrupts_enable  = 0x0;
     interrupts_request = 0x0;
 
@@ -101,6 +102,10 @@ void GBC::reset_state(void) {
     io_lcd_BGP  = 0xfc;
     io_lcd_OBP0 = 0xff;
     io_lcd_OBP1 = 0xff;
+    io_lcd_BGPI = 0x00;
+    io_lcd_BGPD = 0x00;
+    io_lcd_OBPI = 0x00;
+    io_lcd_OBPD = 0x00;
     io_lcd_LCDC = 0x91;
     io_lcd_LY   = 0x00;
     io_lcd_LYC  = 0x00;
@@ -112,6 +117,12 @@ void GBC::reset_state(void) {
 
     io_serial_data    = 0x00;
     io_serial_control = 0x00;
+
+    io_infrared = 0x00;
+
+    io_buttons = 0x00;
+    io_buttons_dirs = 0x0f;
+    io_buttons_buttons = 0x0f;
 
 
     io_sound_enabled = 0xf1;
@@ -143,13 +154,18 @@ void GBC::reset_state(void) {
     
 
     mem_bank_rom = 1;
-    mem_bank_ram = 0;
     mem_bank_wram = 1;
+    mem_bank_vram = 0;
+
+    mem_ram_rtc_select = 0;
 
     memset(mem_RAM, 0, 4 * 0x2000);
     memset(mem_HRAM, 0, 0x7f);
     memset(mem_WRAM, 0, 8 * 0x1000);
+    memset(mem_VRAM, 0, 2 * 0x2000);
 
+    mem_latch_rtc = 0x01;
+    memset(mem_RTC, 0, 0x05);
 }
 
 void GBC::print_header_info(void) {
@@ -236,6 +252,7 @@ void GBC::handle_interrupts(void) {
 
             pc = i * 0x8 + 0x40;
 
+            halt_for_interrupts = false;
             return;
         }
     }
@@ -312,10 +329,19 @@ int GBC::do_instruction(void) {
     op = mem_read(pc++);
     op_cycles = cycles_per_instruction[op];
     if (op == 0xcb)
-        op_cycles = cycles_per_instruction_cb[mem_read(pc + 1)];
+        op_cycles = cycles_per_instruction_cb[mem_read(pc)];
 
     handle_LCD(op_cycles);
     cycles += op_cycles;
+
+    if (halt_for_interrupts) {
+        if (!interrupts_master_enabled || !interrupts_enable) {
+            printf("Waiting for interrupts while disabled... Deadlock.\n");
+            return 1;
+        }
+        pc--;
+        return 0;
+    }
 
     switch (op) {
     case 0x00: // NOP
@@ -324,6 +350,14 @@ int GBC::do_instruction(void) {
         temp1 = mem_read(pc++);
         temp2 = mem_read(pc++);
         BC = temp1 | (temp2 << 8);
+        break;
+    case 0x04: // INC B
+        B(B() + 1);
+        F((B() == 0 ? FLAG_Z : 0) |
+            0 |
+            (B() & 0xf == 0xf ? FLAG_H : 0) |
+            F() & FLAG_C);
+
         break;
     case 0x05: // DEC B
         B(B() - 1);
@@ -347,14 +381,27 @@ int GBC::do_instruction(void) {
             (C() & 0xf == 0xf ? FLAG_H : 0) |
             F() & FLAG_C);
         break;
+    case 0x0d: // DEC C
+        C(C() - 1);
+        F((C() == 0 ? FLAG_Z : 0) |
+            FLAG_N |
+            (C() & 0xf == 0xf ? FLAG_H : 0) |
+            F() & FLAG_C);
+        break;
     case 0x0e: // LD C, nn
         temp1 = mem_read(pc++);
         C(temp1);
+        break;
+    case 0x10: // STOP
+        halt_for_interrupts = true;
         break;
     case 0x11: // LD DE, nnnn
         temp1 = mem_read(pc++);
         temp2 = mem_read(pc++);
         DE = temp1 | (temp2 << 8);
+        break;
+    case 0x12: // LD (DE), A
+        mem_write(DE, A());
         break;
     case 0x15: // DEC D
         D(D() - 1);
@@ -371,6 +418,9 @@ int GBC::do_instruction(void) {
         stemp = mem_read(pc++);
         pc += stemp;
         break;
+    case 0x1a: // LD A, (DE)
+        A(mem_read(DE));
+        break;
     case 0x1d: // DEC E
         E(E() - 1);
         F((E() == 0 ? FLAG_Z : 0) |
@@ -379,7 +429,7 @@ int GBC::do_instruction(void) {
             F() & FLAG_C);
         break;
     case 0x20: // JR NZ, nn (offset)
-        if (!(AF & FLAG_Z)) {
+        if (!(F() & FLAG_Z)) {
             stemp = mem_read(pc++);
             pc += stemp;
         } else {
@@ -402,7 +452,7 @@ int GBC::do_instruction(void) {
         H(temp1);
         break;
     case 0x28: // JR Z, nn (offset)
-        if (AF & FLAG_Z) {
+        if (F() & FLAG_Z) {
             stemp = mem_read(pc++);
             pc += stemp;
         } else {
@@ -412,6 +462,11 @@ int GBC::do_instruction(void) {
     case 0x2a: // LDI A, (HL)
         A(mem_read(HL));
         break;
+    case 0x30: // JR NC, nn
+        stemp = mem_read(pc++);
+        if (!(F() & FLAG_C))
+            pc += stemp;
+        break;
     case 0x31: // LD sp, nnnn
         temp1 = mem_read(pc++);
         temp2 = mem_read(pc++);
@@ -420,6 +475,17 @@ int GBC::do_instruction(void) {
     case 0x36: // LD (HL), nn
         temp1 = mem_read(pc++);
         mem_write(HL, temp1);
+        break;
+    case 0x37: // SCF (Set Carry Flag to 1)
+        F(F() & FLAG_Z | 
+            0 |
+            0 |
+            FLAG_C);
+        break;
+    case 0x38: // JR C, nn
+        stemp = mem_read(pc++);
+        if (F() & FLAG_C)
+            pc += stemp;
         break;
     case 0x3e: // LD a, nn
         temp1 = mem_read(pc++);
@@ -438,14 +504,26 @@ int GBC::do_instruction(void) {
     case 0x47: // LD B, A
         B(A());
         break;
+    case 0x4f: // LD C, A
+        C(A());
+        break;
     case 0x57: // LD D, A
         D(A());
+        break;
+    case 0x5f: // LD E, A
+        E(A());
         break;
     case 0x6b: // LD L, E
         L(E());
         break;
+    case 0x77: // LD (HL), A
+        mem_write(HL, A());
+        break;
     case 0x78: // LD A, B
         A(B());
+        break;
+    case 0x79: // LD A, C
+        A(C());
         break;
     case 0x7a: // LD A, D
         A(D());
@@ -458,9 +536,14 @@ int GBC::do_instruction(void) {
         break;
     case 0xaf: // XOR a (so clear a)
         A(0);
+        F(0);
         break;
     case 0xb1: // OR C
         A(A() | C());
+        F(A() == 0 ? FLAG_Z : 0);
+        break;
+    case 0xb6: // OR (HL)
+        A(A() | mem_read(HL));
         F(A() == 0 ? FLAG_Z : 0);
         break;
     case 0xc1: // POP BC
@@ -478,6 +561,16 @@ int GBC::do_instruction(void) {
         mem_write(--sp, (BC & 0xff00) >> 8);
         mem_write(--sp,  BC & 0x00ff);
         break;
+    case 0xc6: // ADD nn
+        temp1 = mem_read(pc++);
+        temp2 = (A() + temp1) & 0xff;
+        F((temp2 == 0 ? FLAG_Z : 0) | 
+          0 |
+          ((A() ^ temp1 ^ temp2) & 0x10 ? FLAG_H : 0) |
+          (temp2 < A() ? FLAG_C : 0));
+
+        A(temp2);
+        break;
     case 0xc8: // RET Z
         if (F() & FLAG_Z) {
             temp1 = mem_read(sp++);
@@ -491,7 +584,7 @@ int GBC::do_instruction(void) {
         pc = temp1 | (temp2 << 8);
         break;
     case 0xca: // JP Z, nnnn
-        if (AF & FLAG_Z) {
+        if (F() & FLAG_Z) {
             temp1 = mem_read(pc++);
             temp2 = mem_read(pc++);
             pc = temp1 | (temp2 << 8);
@@ -502,11 +595,39 @@ int GBC::do_instruction(void) {
     case 0xcb: // EXTENDED INSTRUCTION
         op = mem_read(pc++);
         switch (op) {
+        case 0x47: // BIT 0, A
+            F((A() & (1<<0)) ? 0 : FLAG_Z |
+                0 |
+                FLAG_H |
+                F() & FLAG_C);
+            break;
+        case 0x76: // BIT 6, (HL)
+            F((mem_read(HL) & (1<<6)) ? 0 : FLAG_Z |
+                0 |
+                FLAG_H |
+                F() & FLAG_C);
+            break;
+        case 0x77: // BIT 6, A
+            F((A() & (1<<6)) ? 0 : FLAG_Z |
+                0 |
+                FLAG_H |
+                F() & FLAG_C);
+            break;
+        case 0x7e: // BIT 7, (HL)
+            F((mem_read(HL) & (1<<7)) ? 0 : FLAG_Z |
+                0 |
+                FLAG_H |
+                F() & FLAG_C);
+            break;
         case 0x87: // RES 0, A (reset bit 0 to 0 in A)
             A(A() & ~(1 << 0));
             break;
+        case 0xb7: // RES 6, A
+            A(A() & ~(1 << 6));
+            break;
         default:
             printf("Unknown extended opcode %x\n", op);
+            pc -= 2;
             return 1;
         }
         break;
@@ -519,6 +640,12 @@ int GBC::do_instruction(void) {
 
         pc = temp1 | (temp2 << 8);
         break;
+    case 0xcf: // RST 0x08
+        mem_write(--sp, (pc & 0xff00) >> 8);
+        mem_write(--sp,  pc & 0x00ff);
+
+        pc = 0x0008;
+        break;
     case 0xd1: // POP DE
         temp1 = mem_read(sp++);
         temp2 = mem_read(sp++);
@@ -528,6 +655,22 @@ int GBC::do_instruction(void) {
     case 0xd5: // PUSH DE
         mem_write(--sp, (DE & 0xff00) >> 8);
         mem_write(--sp,  DE & 0x00ff);
+        break;
+    case 0xd6: // SUB nn
+        temp1 = mem_read(pc++);
+        stemp = A() - temp1;
+        F((stemp == 0 ? FLAG_Z : 0) | 
+          FLAG_N |
+          ((A() ^ temp1 ^ (stemp & 0xff)) & 0x10 ? FLAG_H : 0) |
+          (stemp < 0 ? FLAG_C : 0));
+
+        A(A() - temp1);
+        break;
+    case 0xd7: // RST 0x10
+        mem_write(--sp, (pc & 0xff00) >> 8);
+        mem_write(--sp,  pc & 0x00ff);
+
+        pc = 0x0010;
         break;
     case 0xe0: // LD (ffnn), A
         temp1 = mem_read(pc++);
@@ -554,6 +697,9 @@ int GBC::do_instruction(void) {
           FLAG_H | 
           0);
         break;
+    case 0xe9: // LD PC, HL
+        pc = HL;
+        break;
     case 0xea: // LD (nnnn), A
         temp1 = mem_read(pc++);
         temp2 = mem_read(pc++);
@@ -562,6 +708,12 @@ int GBC::do_instruction(void) {
     case 0xf0: // LD A, (ffnn)
         temp1 = mem_read(pc++);
         A(mem_read(0xff00 | temp1));
+        break;
+    case 0xf1: // POP AF
+        temp1 = mem_read(sp++);
+        temp2 = mem_read(sp++);
+
+        AF = temp1 | (temp2 << 8);
         break;
     case 0xf3: // DI
         interrupts_master_enabled = 0;
@@ -588,6 +740,7 @@ int GBC::do_instruction(void) {
         break;
     default:
         printf("Unknown opcode %x\n", op);
+        pc--;
         return 1;
     }
     return 0;
@@ -602,7 +755,7 @@ void GBC::mem_write(u16 location, u8 value) {
     case 0x0000: // 0000 - 1FFF
     case 0x1000:
         printf("RAM+Timer enable\n");
-        pause();
+        // Dummy, we always have those enabled.
         break;
     case 0x2000: // 2000 - 3FFF
     case 0x3000:
@@ -612,21 +765,31 @@ void GBC::mem_write(u16 location, u8 value) {
     case 0x4000: // 4000 - 5FFF
     case 0x5000:
         printf("RAM bank number -OR- RTC register select\n");
-        pause();
+        mem_ram_rtc_select = value;
         break;
     case 0x6000: // 6000 - 7FFF
     case 0x7000:
         printf("Latch clock data\n");
-        pause();
+        if (mem_latch_rtc == 0x01 && value == 0x01) {
+            // TODO... actually latch something?
+            mem_latch_rtc = mem_latch_rtc;
+        }
+        mem_latch_rtc = value;
         break;
     case 0x8000: // 8000 - 9FFF
     case 0x9000:
         printf("VRAM\n");
+        mem_VRAM[mem_bank_vram][location - 0x8000] = value;
         break;
     case 0xa000: // A000 - BFFF
     case 0xb000:
         printf("RAM (sw)/RTC\n");
-        pause();
+        if (mem_ram_rtc_select < 0x04)
+            mem_RAM[mem_ram_rtc_select][location - 0xa000] = value;
+        else if (mem_ram_rtc_select >= 0x08 && mem_ram_rtc_select <= 0x0c)
+            mem_RTC[mem_ram_rtc_select - 0xa008] = value;
+        else
+            pause();
         break;
     case 0xc000: // C000 - CFFF
         printf("WRAM B0  @%x\n", (location - 0xc000));
@@ -657,6 +820,10 @@ void GBC::mem_write(u16 location, u8 value) {
             printf("I/O ports ");
 
             switch(location) {
+            case 0xff00:
+                printf("Joypad\n");
+                io_buttons = value;
+                break;
             case 0xff01:
                 printf("Serial link data\n");
                 io_serial_data = value;
@@ -815,6 +982,34 @@ void GBC::mem_write(u16 location, u8 value) {
                 printf("window X\n");
                 io_lcd_WX = value;
                 break;
+            case 0xff4f:
+                printf("VRAM Bank\n");
+                mem_bank_vram = value & 1;
+                break;
+            case 0xff56:
+                printf("Infrared\n");
+                io_infrared = value;
+                break;
+            case 0xff68:
+                printf("Background Palette Index\n");
+                io_lcd_BGPI = value;
+                break;
+            case 0xff69:
+                printf("Background Palette Data\n");
+                io_lcd_BGPD = value;
+                if (io_lcd_BGPI & (1 << 7))
+                    io_lcd_BGPI = (((io_lcd_BGPI & 0x3f) + 1) & 0x3f) | (1 << 7);
+                break;
+            case 0xff6a:
+                printf("Sprite Palette Index\n");
+                io_lcd_OBPI = value;
+                break;
+            case 0xff6b:
+                printf("Sprite Palette Data\n");
+                io_lcd_OBPD = value;
+                if (io_lcd_OBPI & (1 << 7))
+                    io_lcd_OBPI = (((io_lcd_OBPI & 0x3f) + 1) & 0x3f) | (1 << 7);
+                break;
             default:
                 printf("UNKNOWN\n");
                 pause();
@@ -850,24 +1045,32 @@ u8 GBC::mem_read(u16 location) {
     case 0x1000:
     case 0x2000:
     case 0x3000:
-        //printf("CA ROM fixed\n");
+        printf("CA ROM fixed @ %4x\n", location);
         return rom[location];
     case 0x4000: // 4000 - 7FFF
     case 0x5000:
     case 0x6000:
     case 0x7000:
+        if (location > 0x7e50)
+            pause();
         printf("CA ROM switchable, bank %d, %4x\n", mem_bank_rom, mem_bank_rom * 0x4000 + (location - 0x4000));
         return rom[mem_bank_rom * 0x4000 + (location - 0x4000)];
         break;
     case 0x8000: // 8000 - 9FFF
     case 0x9000:
         printf("VRAM\n");
+        return mem_VRAM[mem_bank_vram][location - 0x8000];
         break;
     case 0xa000: // A000 - BFFF
     case 0xb000:
         printf("RAM (sw)/RTC\n");
+        if (mem_ram_rtc_select < 0x04)
+            return mem_RAM[mem_ram_rtc_select][location - 0xa000];
+        else if (mem_ram_rtc_select >= 0x08 && mem_ram_rtc_select <= 0x0c)
+            return mem_RTC[mem_ram_rtc_select - 0xa008];
+        
         pause();
-        break;
+        return 0;
     case 0xc000: // C000 - CFFF
         printf("WRAM B0  @%x\n", (location - 0xc000));
         return mem_WRAM[0][location - 0xc000];
@@ -898,6 +1101,13 @@ u8 GBC::mem_read(u16 location) {
         if (location < 0xff80) { // FF00 - FF7F
             //printf("I/O ports ");
             switch (location) {
+            case 0xff00:
+                printf("Joypad\n");
+                if (io_buttons & (1 << 4) == 0)
+                    return (io_buttons & 0xf0) | (io_buttons_dirs & 0x0f);
+                else if (io_buttons & (1 << 5) == 0)
+                    return (io_buttons & 0xf0) | (io_buttons_buttons & 0x0f);
+                return (io_buttons & 0xf0) | (io_buttons_buttons & 0x0f);
             case 0xff01:
                 printf("Serial link data\n");
                 return io_serial_data;
@@ -967,13 +1177,19 @@ u8 GBC::mem_read(u16 location) {
             case 0xff4b:
                 printf("Window X\n");
                 return io_lcd_WX;
+            case 0xff4f:
+                printf("VRAM Bank\n");
+                return mem_bank_vram & 1;
+            case 0xff56:
+                printf("Infrared\n");
+                return io_infrared;
             }
             
             printf("UNKNOWN\n");
             pause();
         }
         if (location < 0xffff) { // FF80 - FFFE
-            printf("HRAM  @%x", location - 0xff80);
+            printf("HRAM  @%x (%d)\n", location - 0xff80, mem_HRAM[location - 0xff80]);
             return mem_HRAM[location - 0xff80];
         }
         if (location == 0xffff) { // FFFF
