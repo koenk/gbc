@@ -1,7 +1,7 @@
 PROGNAME = GBC
 OFILES = main.o GBC.o disassembler.o
 
-CC = clang++ # or g++
+CC = g++ #clang++ # or g++
 RM = rm -fv
 
 W_FLAGS = -Wall -Wextra -Werror-implicit-function-declaration -Wshadow -pedantic-errors

@@ -302,13 +302,13 @@ void GBC::handle_LCD(int op_cycles) {
     if (io_lcd_STAT & (1 << 6) && io_lcd_STAT & (1 << 2)) // LY=LYC inter
         interrupts_request |= 1 << 1;
 
-    if (io_lcd_STAT & (1 << 5) && io_lcd_STAT & 3 == 2) // Mode 2 inter
+    if (io_lcd_STAT & (1 << 5) && (io_lcd_STAT & 3) == 2) // Mode 2 inter
         interrupts_request |= 1 << 1;
 
-    if (io_lcd_STAT & (1 << 4) && io_lcd_STAT & 3 == 1) // Mode 1 inter
+    if (io_lcd_STAT & (1 << 4) && (io_lcd_STAT & 3) == 1) // Mode 1 inter
         interrupts_request |= 1 << 1;
 
-    if (io_lcd_STAT & (1 << 3) && io_lcd_STAT & 3 == 0) // Mode 0 inter
+    if (io_lcd_STAT & (1 << 3) && (io_lcd_STAT & 3) == 0) // Mode 0 inter
         interrupts_request |= 1 << 1;
 }
 
@@ -356,16 +356,16 @@ int GBC::do_instruction(void) {
         B(B() + 1);
         F((B() == 0 ? FLAG_Z : 0) |
             0 |
-            (B() & 0xf == 0xf ? FLAG_H : 0) |
-            F() & FLAG_C);
+            ((B() & 0xf) == 0xf ? FLAG_H : 0) |
+            (F() & FLAG_C));
 
         break;
     case 0x05: // DEC B
         B(B() - 1);
         F((B() == 0 ? FLAG_Z : 0) |
             FLAG_N |
-            (B() & 0xf == 0xf ? FLAG_H : 0) |
-            F() & FLAG_C);
+            ((B() & 0xf) == 0xf ? FLAG_H : 0) |
+            (F() & FLAG_C));
 
         break;
     case 0x06: // LD B, nn
@@ -379,15 +379,15 @@ int GBC::do_instruction(void) {
         C(C() + 1);
         F((C() == 0 ? FLAG_Z : 0) |
             0 |
-            (C() & 0xf == 0xf ? FLAG_H : 0) |
-            F() & FLAG_C);
+            ((C() & 0xf) == 0xf ? FLAG_H : 0) |
+            (F() & FLAG_C));
         break;
     case 0x0d: // DEC C
         C(C() - 1);
         F((C() == 0 ? FLAG_Z : 0) |
             FLAG_N |
-            (C() & 0xf == 0xf ? FLAG_H : 0) |
-            F() & FLAG_C);
+            ((C() & 0xf) == 0xf ? FLAG_H : 0) |
+            (F() & FLAG_C));
         break;
     case 0x0e: // LD C, nn
         temp1 = mem_read(pc++);
@@ -408,8 +408,8 @@ int GBC::do_instruction(void) {
         D(D() - 1);
         F((D() == 0 ? FLAG_Z : 0) |
             FLAG_N |
-            (D() & 0xf == 0xf ? FLAG_H : 0) |
-            F() & FLAG_C);
+            ((D() & 0xf) == 0xf ? FLAG_H : 0) |
+            (F() & FLAG_C));
         break;
     case 0x16: // LD D, nn
         temp1 = mem_read(pc++);
@@ -434,8 +434,8 @@ int GBC::do_instruction(void) {
         E(E() - 1);
         F((E() == 0 ? FLAG_Z : 0) |
             FLAG_N |
-            (E() & 0xf == 0xf ? FLAG_H : 0) |
-            F() & FLAG_C);
+            ((E() & 0xf) == 0xf ? FLAG_H : 0) |
+            (F() & FLAG_C));
         break;
     case 0x20: // JR NZ, nn (offset)
         if (!(F() & FLAG_Z)) {
@@ -486,7 +486,7 @@ int GBC::do_instruction(void) {
         mem_write(HL, temp1);
         break;
     case 0x37: // SCF (Set Carry Flag to 1)
-        F(F() & FLAG_Z | 
+        F((F() & FLAG_Z) | 
             0 |
             0 |
             FLAG_C);
@@ -504,8 +504,8 @@ int GBC::do_instruction(void) {
         A(A() - 1);
         F((A() == 0 ? FLAG_Z : 0) |
             FLAG_N |
-            (A() & 0xf == 0xf ? FLAG_H : 0) |
-            F() & FLAG_C);
+            ((A() & 0xf) == 0xf ? FLAG_H : 0) |
+            (F() & FLAG_C));
         break;
     case 0x42: // LD B, D
         B(D());
@@ -614,25 +614,25 @@ int GBC::do_instruction(void) {
             F((A() & (1<<0)) ? 0 : FLAG_Z |
                 0 |
                 FLAG_H |
-                F() & FLAG_C);
+                (F() & FLAG_C));
             break;
         case 0x76: // BIT 6, (HL)
             F((mem_read(HL) & (1<<6)) ? 0 : FLAG_Z |
                 0 |
                 FLAG_H |
-                F() & FLAG_C);
+                (F() & FLAG_C));
             break;
         case 0x77: // BIT 6, A
             F((A() & (1<<6)) ? 0 : FLAG_Z |
                 0 |
                 FLAG_H |
-                F() & FLAG_C);
+                (F() & FLAG_C));
             break;
         case 0x7e: // BIT 7, (HL)
             F((mem_read(HL) & (1<<7)) ? 0 : FLAG_Z |
                 0 |
                 FLAG_H |
-                F() & FLAG_C);
+                (F() & FLAG_C));
             break;
         case 0x87: // RES 0, A (reset bit 0 to 0 in A)
             A(A() & ~(1 << 0));
@@ -1121,9 +1121,9 @@ u8 GBC::mem_read(u16 location) {
             switch (location) {
             case 0xff00:
                 printf("Joypad\n");
-                if (io_buttons & (1 << 4) == 0)
+                if ((io_buttons & (1 << 4)) == 0)
                     return (io_buttons & 0xf0) | (io_buttons_dirs & 0x0f);
-                else if (io_buttons & (1 << 5) == 0)
+                else if ((io_buttons & (1 << 5)) == 0)
                     return (io_buttons & 0xf0) | (io_buttons_buttons & 0x0f);
                 return (io_buttons & 0xf0) | (io_buttons_buttons & 0x0f);
             case 0xff01:
