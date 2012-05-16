@@ -13,11 +13,11 @@ const int GB_LCD_WX_MAX = 166;
 const int GB_LCD_WY_MAX = 143;
 
 const int GB_LCD_MODE_0_CLKS = 204;
-const int GB_LCD_MODE_1_CLKS = 4560; 
+const int GB_LCD_MODE_1_CLKS = 4560;
 const int GB_LCD_MODE_2_CLKS = 80;
 const int GB_LCD_MODE_3_CLKS = 172;
 
-const int cycles_per_instruction[] = { 
+const int cycles_per_instruction[] = {
   // 0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f
      4, 12,  8,  8,  4,  4,  8,  4, 20,  8,  8,  8,  4,  4,  8,  4, // 0
      4, 12,  8,  8,  4,  4,  8,  4, 12,  8,  8,  8,  4,  4,  8,  4, // 1
@@ -77,7 +77,7 @@ void GBC::reset_state(void) {
     BC = 0x0013;
     DE = 0x00D8;
     HL = 0x014D;
-        
+
     sp = 0xFFFE;
     pc = 0x0100;
 
@@ -151,7 +151,7 @@ void GBC::reset_state(void) {
     io_sound_channel4_envelope = 0x00;
     io_sound_channel4_poly = 0x00;
     io_sound_channel4_consec_initial = 0xbf;
-    
+
 
     mem_bank_rom = 1;
     mem_bank_wram = 1;
@@ -170,7 +170,7 @@ void GBC::reset_state(void) {
 
 void GBC::print_header_info(void) {
     printf("Title: %s\n", &rom[0x134]);
-    
+
     printf("Cart type: ");
     u8 cart_type = rom[0x147];
     switch(cart_type) {
@@ -298,7 +298,7 @@ void GBC::handle_LCD(int op_cycles) {
             break;
         }
     }
-    
+
     if (io_lcd_STAT & (1 << 6) && io_lcd_STAT & (1 << 2)) // LY=LYC inter
         interrupts_request |= 1 << 1;
 
@@ -371,6 +371,10 @@ int GBC::do_instruction(void) {
     case 0x06: // LD B, nn
         temp1 = mem_read(pc++);
         B(temp1);
+        break;
+    case 0x07: // RLCA
+        F(A() & 0x80 ? FLAG_C : 0);
+        A((A() << 1) | (A() >> 7));
         break;
     case 0x0b: // DEC BC
         BC--;
@@ -486,7 +490,7 @@ int GBC::do_instruction(void) {
         mem_write(HL, temp1);
         break;
     case 0x37: // SCF (Set Carry Flag to 1)
-        F((F() & FLAG_Z) | 
+        F((F() & FLAG_Z) |
             0 |
             0 |
             FLAG_C);
@@ -495,6 +499,13 @@ int GBC::do_instruction(void) {
         stemp = mem_read(pc++);
         if (F() & FLAG_C)
             pc += stemp;
+        break;
+    case 0x3c: // INC A
+        A(A() + 1);
+        F((A() == 0 ? FLAG_Z : 0) |
+            0 |
+            (A() & 0x0f ? 0 : FLAG_H) |
+            (F() & FLAG_C));
         break;
     case 0x3e: // LD a, nn
         temp1 = mem_read(pc++);
@@ -561,6 +572,12 @@ int GBC::do_instruction(void) {
         A(A() | mem_read(HL));
         F(A() == 0 ? FLAG_Z : 0);
         break;
+    case 0xb7: // OR A
+        F((A() ? 0 : FLAG_Z) |
+            0 |
+            0 |
+            0);
+        break;
     case 0xc1: // POP BC
         temp1 = mem_read(sp++);
         temp2 = mem_read(sp++);
@@ -579,7 +596,7 @@ int GBC::do_instruction(void) {
     case 0xc6: // ADD nn
         temp1 = mem_read(pc++);
         temp2 = (A() + temp1) & 0xff;
-        F((temp2 == 0 ? FLAG_Z : 0) | 
+        F((temp2 == 0 ? FLAG_Z : 0) |
           0 |
           ((A() ^ temp1 ^ temp2) & 0x10 ? FLAG_H : 0) |
           (temp2 < A() ? FLAG_C : 0));
@@ -610,6 +627,12 @@ int GBC::do_instruction(void) {
     case 0xcb: // EXTENDED INSTRUCTION
         op = mem_read(pc++);
         switch (op) {
+        case 0x40: // BIT 0, B
+            F((B() & (1<<0)) ? 0 : FLAG_Z |
+                0 |
+                FLAG_H |
+                (F() & FLAG_C));
+            break;
         case 0x47: // BIT 0, A
             F((A() & (1<<0)) ? 0 : FLAG_Z |
                 0 |
@@ -661,6 +684,13 @@ int GBC::do_instruction(void) {
 
         pc = 0x0008;
         break;
+    case 0xd0: // RET NC
+        if (!(F() & FLAG_C)) {
+            temp1 = mem_read(sp++);
+            temp2 = mem_read(sp++);
+            pc = temp1 | (temp2 << 8);
+        }
+        break;
     case 0xd1: // POP DE
         temp1 = mem_read(sp++);
         temp2 = mem_read(sp++);
@@ -674,7 +704,7 @@ int GBC::do_instruction(void) {
     case 0xd6: // SUB nn
         temp1 = mem_read(pc++);
         stemp = A() - temp1;
-        F((stemp == 0 ? FLAG_Z : 0) | 
+        F((stemp == 0 ? FLAG_Z : 0) |
           FLAG_N |
           ((A() ^ temp1 ^ (stemp & 0xff)) & 0x10 ? FLAG_H : 0) |
           (stemp < 0 ? FLAG_C : 0));
@@ -709,7 +739,7 @@ int GBC::do_instruction(void) {
         A(A() & temp1);
         F((A() == 0) ? FLAG_Z : 0 |
           0 |
-          FLAG_H | 
+          FLAG_H |
           0);
         break;
     case 0xe9: // LD PC, HL
@@ -748,7 +778,7 @@ int GBC::do_instruction(void) {
     case 0xfe: // CP nn
         temp1 = mem_read(pc++);
         stemp = A() - temp1;
-        F((stemp == 0 ? FLAG_Z : 0) | 
+        F((stemp == 0 ? FLAG_Z : 0) |
           FLAG_N |
           ((A() ^ temp1 ^ (stemp & 0xff)) & 0x10 ? FLAG_H : 0) |
           (stemp < 0 ? FLAG_C : 0));
@@ -1025,11 +1055,20 @@ void GBC::mem_write(u16 location, u8 value) {
                 if (io_lcd_OBPI & (1 << 7))
                     io_lcd_OBPI = (((io_lcd_OBPI & 0x3f) + 1) & 0x3f) | (1 << 7);
                 break;
+            case 0xff70:
+                printf("WRAM Bank\n");
+                if (value == 0)
+                    mem_bank_wram = 1;
+                else if (value < 8)
+                    mem_bank_wram = value;
+                else
+                    pause();
+                break;
             default:
                 printf("UNKNOWN\n");
                 pause();
             }
-            
+
             break;
         }
 
@@ -1063,7 +1102,7 @@ u8 GBC::mem_read(u16 location) {
     case 0x1000:
     case 0x2000:
     case 0x3000:
-        printf("CA ROM fixed @ %4x\n", location);
+        //printf("CA ROM fixed @ %4x\n", location);
         return rom[location];
     case 0x4000: // 4000 - 7FFF
     case 0x5000:
@@ -1086,7 +1125,7 @@ u8 GBC::mem_read(u16 location) {
             return mem_RAM[mem_ram_rtc_select][location - 0xa000];
         else if (mem_ram_rtc_select >= 0x08 && mem_ram_rtc_select <= 0x0c)
             return mem_RTC[mem_ram_rtc_select - 0xa008];
-        
+
         pause();
         return 0;
     case 0xc000: // C000 - CFFF
@@ -1201,8 +1240,11 @@ u8 GBC::mem_read(u16 location) {
             case 0xff56:
                 printf("Infrared\n");
                 return io_infrared;
+            case 0xff70:
+                printf("WRAM bank\n");
+                return mem_bank_wram;
             }
-            
+
             printf("UNKNOWN\n");
             pause();
         }
@@ -1214,7 +1256,7 @@ u8 GBC::mem_read(u16 location) {
             printf("Interrupt enable\n");
             return interrupts_enable;
         }
-    
+
     default:
         printf("INVALID LOCATION\n");
         pause();

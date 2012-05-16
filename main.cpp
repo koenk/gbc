@@ -14,7 +14,7 @@
 
 void read_file(char *filename, u8 **src, size_t *size) {
     FILE *fp;
- 
+
     fp = fopen(filename, "rb");
     if (!fp) {
         fprintf(stderr, "Failed to load file (\"%s\").\n", filename);
@@ -41,16 +41,17 @@ void read_file(char *filename, u8 **src, size_t *size) {
 
 int main(void) {
     //char filename[] = "pkmn_blue.gb"; int rom_type = 0;
-    char filename[] = "pkmn_silver.gbc"; int rom_type = 1;
+    //char filename[] = "pkmn_silver.gbc"; int rom_type = 1;
+    char filename[] = "tloz_ages.gbc"; int rom_type = 1;
     u8 *file;
     size_t filesize;
     read_file(filename, &file, &filesize);
-    
+
     GBC emu(file, rom_type);
     emu.print_header_info();
 
     disassemble_bootblock(emu);
-    
+
     printf("==========================\n");
     printf("=== Starting execution ===\n");
     printf("==========================\n\n");
@@ -63,7 +64,7 @@ int main(void) {
     cycles_to_emulate = 4194304 * seconds_to_emulate;
     struct timeval starttime, endtime;
     gettimeofday(&starttime, NULL);
-    
+
     while (!ret && emu.cycles < cycles_to_emulate) {
         if (emu.pc > 0x6f && (emu.pc < 0x1f80 || emu.pc > 0x1f86) && (emu.pc < 0x36e2 || emu.pc > 0x36e7)) {
             //emu.print_regs();
@@ -91,6 +92,6 @@ int main(void) {
     #ifdef WIN32
         while (1);
     #endif
-    
+
     return 0;
 }
