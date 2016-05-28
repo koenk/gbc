@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 
+#include "mmu.h"
+
 typedef struct {
   u8 mask;
   u8 value;
@@ -105,28 +107,26 @@ static GBOPCODE cbOpcodes[] = {
   { 0x00, 0x00, "DB CBh,%B" }
 };
 
-int disassemble(GBC emu) {
-    return disassemble(emu, emu.pc);
-}
 
-int disassemble(GBC emu, u16 pc) {
+int disassemble_pc(struct gb_state* s, u16 pc)
+{
     u16 oldpc = pc;
-    u8 opcode = emu.mem_read(pc++);
+    u8 opcode = mmu_read(s, pc++);
     GBOPCODE *op = NULL;
     const char *mnem = NULL;
-    
+
     if (opcode == 0xcb) {
         // extended instruction
         op = cbOpcodes;
-        opcode = emu.mem_read(pc++);
+        opcode = mmu_read(s, pc++);
     } else {
         op = opcodes;
     }
-    
+
     while ((opcode & op->mask) != op->value)
         op++;
     mnem = op->mnem;
-    
+
     u8 temp1, temp2;
     s8 stemp;
 
@@ -135,20 +135,20 @@ int disassemble(GBC emu, u16 pc) {
             mnem++;
             switch(*mnem) {
             case 'B': // Single byte
-                temp1 = emu.mem_read(pc++);
+                temp1 = mmu_read(s, pc++);
                 printf("0x%x", temp1);
                 break;
             case 'W': // Word (two bytes)
-                temp1 = emu.mem_read(pc++);
-                temp2 = emu.mem_read(pc++);
+                temp1 = mmu_read(s, pc++);
+                temp2 = mmu_read(s, pc++);
                 printf("0x%x", temp1 | (temp2 << 8));
                 break;
             case 'd': // Displacement (one byte)
-                stemp = emu.mem_read(pc++);
+                stemp = mmu_read(s, pc++);
                 printf("%d", stemp);
                 break;
             case 'n': // Single byte, no 0x prefix
-                temp1 = emu.mem_read(pc++);
+                temp1 = mmu_read(s, pc++);
                 printf("%02x", temp1);
                 break;
             case 'r': // Register name
@@ -183,16 +183,25 @@ int disassemble(GBC emu, u16 pc) {
         }
         mnem++;
     }
+    printf("\t\t");
+    for (int i = 0; i < pc - oldpc; i++)
+        printf(" %02x", mmu_read(s, oldpc + i));
     putc('\n', stdout);
     return pc - oldpc;
 }
 
-void disassemble_bootblock(GBC emu) {
+void disassemble(struct gb_state* state)
+{
+    disassemble_pc(state, state->pc);
+}
+
+void disassemble_bootblock(struct gb_state *state)
+{
     printf("Disassembling bootblock @ 0x100:\n\n");
 
     u16 pc = 0x100;
     while (pc < 0x104)
-        pc += disassemble(emu, pc);
+        pc += disassemble_pc(state, pc);
 
     putc('\n', stdout);
 }

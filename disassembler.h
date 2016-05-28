@@ -3,10 +3,9 @@
 #define DISASSEMBLER_H
 
 #include "types.h"
-#include "GBC.h"
 
-int disassemble(GBC emu);
-int disassemble(GBC emu, u16 pc);
-void disassemble_bootblock(GBC emu);
+int disassemble_pc(struct gb_state* state, u16 pc);
+void disassemble(struct gb_state* state);
+void disassemble_bootblock(struct gb_state *state);
 
 #endif

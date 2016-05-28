@@ -1,21 +1,19 @@
-PROGNAME = GBC
-OFILES = main.o GBC.o disassembler.o
+PROGNAME = main
+OBJFILES = main.o cpu.o mmu.o disassembler.o
 
-CC = g++ #clang++ # or g++
+CC = clang
 RM = rm -fv
 
 W_FLAGS = -Wall -Wextra -Werror-implicit-function-declaration -Wshadow -pedantic-errors
-CFLAGS = -g -O2 $(W_FLAGS)
+CFLAGS = -MD -std=c11 -g -O2 $(W_FLAGS)
 LFLAGS = -lm
 
 all: $(PROGNAME)
 
-$(PROGNAME): $(OFILES)
+$(PROGNAME): $(OBJFILES)
 	$(CC) $(CFLAGS) $(LFLAGS) -o $@ $^
-
-%.o: %.cpp
-	$(CC) -c $(CFLAGS) -o $@ $<
 
 clean:
 	$(RM) $(PROGNAME) *.o
 
+-include *.d
