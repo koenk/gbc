@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 
 // Windows has no gettimeofday() (or sys/time.h for that matter).
 #ifdef _MSC_VER
@@ -110,12 +111,17 @@ int main(void) {
     struct gb_state *gb_state;
     u8 *file;
     size_t filesize;
+    u8 *bios;
+    size_t bios_size;
 
     read_file(filename, &file, &filesize);
 
+    read_file("bios.bin", &bios, &bios_size);
+    assert(bios_size == 256);
 
     gb_state = malloc(sizeof(struct gb_state));
     gb_state->rom = file;
+    gb_state->bios = bios;
     gb_state->rom_type = rom_type;
     gb_state->reg8_lut[0] = &gb_state->reg8.B;
     gb_state->reg8_lut[1] = &gb_state->reg8.C;
@@ -129,6 +135,10 @@ int main(void) {
     gb_state->reg16_lut[1] = &gb_state->reg16.DE;
     gb_state->reg16_lut[2] = &gb_state->reg16.HL;
     gb_state->reg16_lut[3] = &gb_state->sp;
+    gb_state->reg16s_lut[0] = &gb_state->reg16.BC;
+    gb_state->reg16s_lut[1] = &gb_state->reg16.DE;
+    gb_state->reg16s_lut[2] = &gb_state->reg16.HL;
+    gb_state->reg16s_lut[3] = &gb_state->reg16.AF;
 
     print_rom_header_info(file);
 

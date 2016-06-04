@@ -308,6 +308,11 @@ u8 mmu_read(struct gb_state *s, u16 location) {
     // MBC3
 
     //printf("Mem read (%x): ", location);
+    if (s->in_bios && location < 0x100)
+    {
+        //printf("BIOS: %04x: %02x\n", location, s->bios[location]);
+        return s->bios[location];
+    }
 
     switch (location & 0xf000) {
     case 0x0000: // 0000 - 3FFF

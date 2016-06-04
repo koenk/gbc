@@ -62,10 +62,11 @@ struct gb_state
 {
     u8 *rom;
     int rom_type;
+    u8* bios;
+    u8 in_bios:1;
+
     int freq;
-
     int lcd_mode_clks_left;
-
 
     union {
         u8 regs[8];
@@ -91,6 +92,7 @@ struct gb_state
     /* Lookup tables for the reg-index encoded in instructions to ptr to reg. */
     u8 *reg8_lut[9];
     u16 *reg16_lut[4];
+    u16 *reg16s_lut[4];
 
     u16 sp;
     u16 pc;
