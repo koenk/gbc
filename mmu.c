@@ -417,7 +417,7 @@ u8 mmu_read(struct gb_state *s, u16 location) {
                 printf("Sound enabled flags\n");
                 return s->io_sound_enabled;
             case 0xff40:
-                printf("LCD Control\n");
+                printf("LCD Control (%04x: %02x)\n", location, s->io_lcd_LCDC);
                 return s->io_lcd_LCDC;
             case 0xff42:
                 printf("Scroll Y\n");

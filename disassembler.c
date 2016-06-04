@@ -183,9 +183,11 @@ int disassemble_pc(struct gb_state* s, u16 pc)
         }
         mnem++;
     }
+    /*
     printf("\t\t");
     for (int i = 0; i < pc - oldpc; i++)
         printf(" %02x", mmu_read(s, oldpc + i));
+    */
     putc('\n', stdout);
     return pc - oldpc;
 }

@@ -117,6 +117,18 @@ int main(void) {
     gb_state = malloc(sizeof(struct gb_state));
     gb_state->rom = file;
     gb_state->rom_type = rom_type;
+    gb_state->reg8_lut[0] = &gb_state->reg8.B;
+    gb_state->reg8_lut[1] = &gb_state->reg8.C;
+    gb_state->reg8_lut[2] = &gb_state->reg8.D;
+    gb_state->reg8_lut[3] = &gb_state->reg8.E;
+    gb_state->reg8_lut[4] = &gb_state->reg8.H;
+    gb_state->reg8_lut[5] = &gb_state->reg8.L;
+    gb_state->reg8_lut[6] = NULL;
+    gb_state->reg8_lut[7] = &gb_state->reg8.A;
+    gb_state->reg16_lut[0] = &gb_state->reg16.BC;
+    gb_state->reg16_lut[1] = &gb_state->reg16.DE;
+    gb_state->reg16_lut[2] = &gb_state->reg16.HL;
+    gb_state->reg16_lut[3] = &gb_state->sp;
 
     print_rom_header_info(file);
 

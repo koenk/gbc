@@ -18,14 +18,14 @@ typedef int64_t s64;
 #define REG16_DE 2
 #define REG16_HL 4
 #define REG16_AF 6
-#define REG_B 0
-#define REG_C 1
-#define REG_D 2
-#define REG_E 3
-#define REG_H 4
-#define REG_L 5
-#define REG_A 6
-#define REG_F 7
+#define REG_B 1
+#define REG_C 0
+#define REG_D 3
+#define REG_E 2
+#define REG_H 5
+#define REG_L 4
+#define REG_A 7
+#define REG_F 6
 
     /*
     inline u8 A(void) { return AF >> 8; };
@@ -69,27 +69,28 @@ struct gb_state
 
     union {
         u8 regs[8];
-        /* This doesn't work because of endianness :( */
-        /*
         struct {
             u16 BC, DE, HL, AF;
         } reg16;
-        */
-        struct {
-            u8 B, C, D, E, H, L, A, F;
+        struct { /* little-endian of x86 is not nice here. */
+            u8 C, B, E, D, L, H, F, A;
         } reg8;
         struct __attribute__((packed)) {
-            char padding[7];
+            char padding[6];
             u8 pad1:1;
             u8 pad2:1;
             u8 pad3:1;
             u8 pad4:1;
-            u8 C:1;
-            u8 H:1;
-            u8 N:1;
-            u8 Z:1;
+            u8 CF:1;
+            u8 HF:1;
+            u8 NF:1;
+            u8 ZF:1;
         } flags;
     };
+
+    /* Lookup tables for the reg-index encoded in instructions to ptr to reg. */
+    u8 *reg8_lut[9];
+    u16 *reg16_lut[4];
 
     u16 sp;
     u16 pc;

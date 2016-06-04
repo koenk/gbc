@@ -1,3 +1,8 @@
+/*
+ * Flag info per instruction:
+ * http://www.chrisantonellis.com/files/gameboy/gb-instructions.txt
+ */
+
 #include "cpu.h"
 #include <string.h>
 #include <stdio.h>
@@ -8,18 +13,20 @@
 static void cpu_handle_interrupts(struct gb_state *state);
 static void cpu_handle_LCD(struct gb_state *state, int op_cycles);
 
-const int GB_FREQ = 4194304; // Hz
-const int GB_LCD_WIDTH = 160;
-const int GB_LCD_HEIGHT = 144;
+static const int GB_FREQ = 4194304; // Hz
+static const int GB_LCD_WIDTH = 160;
+static const int GB_LCD_HEIGHT = 144;
 
-const int GB_LCD_LY_MAX = 153;
-const int GB_LCD_WX_MAX = 166;
-const int GB_LCD_WY_MAX = 143;
+static const int GB_LCD_LY_MAX = 153;
+static const int GB_LCD_WX_MAX = 166;
+static const int GB_LCD_WY_MAX = 143;
 
-const int GB_LCD_MODE_0_CLKS = 204;
-const int GB_LCD_MODE_1_CLKS = 4560;
-const int GB_LCD_MODE_2_CLKS = 80;
-const int GB_LCD_MODE_3_CLKS = 172;
+static const int GB_LCD_MODE_0_CLKS = 204;
+static const int GB_LCD_MODE_1_CLKS = 4560;
+static const int GB_LCD_MODE_2_CLKS = 80;
+static const int GB_LCD_MODE_3_CLKS = 172;
+
+static const u8 flagmasks[] = { FLAG_Z, FLAG_Z, FLAG_C, FLAG_C };
 
 static int cycles_per_instruction[] = {
   // 0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f
@@ -61,43 +68,24 @@ static int cycles_per_instruction_cb[] = {
      8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // f
 };
 
-#define M(op, value, mask) (((op) & (mask)) == (value))
-#define mem(loc) (mmu_read(s, loc))
-#define PC (s->pc)
-#define IMM8  (mmu_read(s, s->pc))
-#define IMM16 (mmu_read(s, s->pc) | (mmu_read(s, s->pc + 1) << 8))
-#define REG8(bitpos)  ((((op >> bitpos) & 7) == 6) ? \
-    NULL : \
-    ((((op >> bitpos) & 7) == 7) ? \
-        &s->regs[6] : \
-     &s->regs[(op >> bitpos) & 7]))
-#define AF (((u16)s->reg8.A << 8) | s->reg8.F)
-#define BC (((u16)s->reg8.B << 8) | s->reg8.C)
-#define DE (((u16)s->reg8.D << 8) | s->reg8.E)
-#define HL (((u16)s->reg8.H << 8) | s->reg8.L)
-#define AFs(v) do { s->reg8.A = (v >> 8) & 0xff; s->reg8.F = v & 0xff; } while (0)
-#define BCs(v) do { s->reg8.B = (v >> 8) & 0xff; s->reg8.C = v & 0xff; } while (0)
-#define DEs(v) do { s->reg8.D = (v >> 8) & 0xff; s->reg8.E = v & 0xff; } while (0)
-#define HLs(v) do { s->reg8.H = (v >> 8) & 0xff; s->reg8.L = v & 0xff; } while (0)
-
 void cpu_reset_state(struct gb_state* s)
 {
     s->freq = GB_FREQ;
     s->cycles = 0;
 
-    AFs(0x01B0);
-    BCs(0x0013);
-    DEs(0x00D8);
-    HLs(0x014D);
+    s->reg16.AF = 0x01B0;
+    s->reg16.BC = 0x0013;
+    s->reg16.DE = 0x00D8;
+    s->reg16.HL = 0x014D;
 
     s->sp = 0xFFFE;
     s->pc = 0x0100;
 
     if (1 || s->rom_type == 1) {
-        AFs(0x1180);
-        BCs(0x0000);
-        DEs(0xff56);
-        HLs(0x000d);
+        s->reg16.AF = 0x1180;
+        s->reg16.BC = 0x0000;
+        s->reg16.DE = 0xff56;
+        s->reg16.HL = 0x000d;
     }
 
     s->halt_for_interrupts = 0;
@@ -182,15 +170,15 @@ void cpu_reset_state(struct gb_state* s)
 
 void cpu_print_regs(struct gb_state *s) {
     printf("\n\tAF\tBC\tDE\tHL\tSP\tPC\t\tLY\tZNHC\n");
-    printf("\t%04x\t%04x\t%04x\t%04x\t%04x\t%04x\t\t%04x\t%d%d%d%d\n", AF, BC,
-            DE, HL, s->sp, s->pc, s->io_lcd_LY, s->flags.Z, s->flags.N,
-            s->flags.H, s->flags.C);
-    /*
+    printf("\t%04x\t%04x\t%04x\t%04x\t%04x\t%04x\t\t%04x\t%d%d%d%d\n",
+            s->reg16.AF, s->reg16.BC, s->reg16.DE, s->reg16.HL, s->sp, s->pc,
+            s->io_lcd_LY, s->flags.ZF, s->flags.NF, s->flags.HF, s->flags.CF);
     printf("\t%02x\t%02x\t%02x\t%02x\t%02x\t%02x\t%02x\t%02x\n",
             s->reg8.A, s->reg8.F,
             s->reg8.B, s->reg8.C,
             s->reg8.D, s->reg8.E,
             s->reg8.H, s->reg8.L);
+    /*
     printf("\tZ:%d\tN:%d\tH:%d\tC:%d\t\n\n", s->flags.Z, s->flags.N, s->flags.H, s->flags.C);
     */
 }
@@ -271,6 +259,32 @@ static void cpu_handle_LCD(struct gb_state *s, int op_cycles) {
         s->interrupts_request |= 1 << 1;
 }
 
+#define CF s->flags.CF
+#define HF s->flags.HF
+#define NF s->flags.NF
+#define ZF s->flags.ZF
+#define A s->reg8.A
+#define F s->reg8.F
+#define B s->reg8.B
+#define C s->reg8.C
+#define D s->reg8.D
+#define E s->reg8.E
+#define H s->reg8.H
+#define L s->reg8.L
+#define AF s->reg16.AF
+#define BC s->reg16.BC
+#define DE s->reg16.DE
+#define HL s->reg16.HL
+#define PC (s->pc)
+#define M(op, value, mask) (((op) & (mask)) == (value))
+#define mem(loc) (mmu_read(s, loc))
+#define IMM8  (mmu_read(s, s->pc))
+#define IMM16 (mmu_read(s, s->pc) | (mmu_read(s, s->pc + 1) << 8))
+#define REG8(bitpos) s->reg8_lut[(op >> bitpos) & 7]
+#define REG8(bitpos) s->reg8_lut[(op >> bitpos) & 7]
+#define REG16(bitpos) s->reg16_lut[((op >> bitpos) & 3)]
+#define FLAG(bitpos) ((op >> bitpos) & 3)
+
 int cpu_do_instruction(struct gb_state *s) {
     // TODO:
     // * timer
@@ -306,13 +320,30 @@ int cpu_do_instruction(struct gb_state *s) {
     }
 
     if (M(op, 0x00, 0xff)) { // NOP
-#if 0
     } else if (M(op, 0x01, 0xcf)) { /* LD reg16, u16 */
+        u16 *dst = REG16(4);
+        *dst = IMM16;
+        s->pc += 2;
+#if 0
     } else if (M(op, 0x02, 0xff)) { /* LD (BC), A */
     } else if (M(op, 0x03, 0xcf)) { /* INC reg16*/
     } else if (M(op, 0x04, 0xc7)) { /* INC reg8 */
+#endif
     } else if (M(op, 0x05, 0xc7)) { /* DEC reg8 */
+        u8* reg = REG8(3);
+        (*reg)--;
+        NF = 1;
+        ZF = *reg == 0;
+        HF = (*reg & 0x0F) == 0x0F;
     } else if (M(op, 0x06, 0xc7)) { /* LD reg8, imm8 */
+        u8* dst = REG8(3);
+        u8 src = IMM8;
+        s->pc++;
+        if (dst)
+            *dst = src;
+        else
+            mmu_write(s, HL, src);
+#if 0
     } else if (M(op, 0x07, 0xff)) { /* RCLA */
     } else if (M(op, 0x08, 0xff)) { /* LD (imm16), SP */
     } else if (M(op, 0x09, 0xcf)) { /* ADD HL, reg16 */
@@ -325,12 +356,22 @@ int cpu_do_instruction(struct gb_state *s) {
     } else if (M(op, 0x18, 0xff)) { /* JR off8 */
     } else if (M(op, 0x1a, 0xff)) { /* LD A, (DE) */
     } else if (M(op, 0x1f, 0xff)) { /* RRA */
+#endif
     } else if (M(op, 0x20, 0xe7)) { /* JR cond, off8*/
+        u8 flag = (op >> 3) & 3;
+        if (((F & flagmasks[flag]) ? 1 : 0) == (flag & 1))
+            s->pc += (s8)IMM8;
+        s->pc++;
+#if 0
     } else if (M(op, 0x22, 0xff)) { /* LDI (HL), A*/
     } else if (M(op, 0x27, 0xff)) { /* DAA */
     } else if (M(op, 0x2a, 0xff)) { /* LDI A, (HL) */
     } else if (M(op, 0x2f, 0xff)) { /* CPL */
+#endif
     } else if (M(op, 0x32, 0xff)) { /* LDD (HL), A*/
+        mmu_write(s, HL, A);
+        HL--;
+#if 0
     } else if (M(op, 0x37, 0xff)) { /* SCF */
     } else if (M(op, 0x3a, 0xff)) { /* LDD A, (HL) */
     } else if (M(op, 0x3f, 0xff)) { /* CCF */
@@ -345,7 +386,17 @@ int cpu_do_instruction(struct gb_state *s) {
             mmu_write(s, HL, srcval);
 #if 0
     } else if (M(op, 0x76, 0xff)) { /* HALT */
+#endif
     } else if (M(op, 0x80, 0xf8)) { /* ADD A, reg8 */
+        u8* src = REG8(0);
+        u8 srcval = src ? *src : mem(HL);
+        u16 res = A + srcval;
+        ZF = A == 0;
+        NF = 0;
+        HF = (A ^ srcval ^ res) & 0x10 ? 1 : 0;
+        CF = res & 0x100 ? 1 : 0;
+        A = (u8)res;
+#if 0
     } else if (M(op, 0x88, 0xf8)) { /* ADC A, reg8 */
     } else if (M(op, 0x90, 0xf8)) { /* SUB reg8 */
     } else if (M(op, 0x98, 0xf8)) { /* SBC A, reg8*/
@@ -354,8 +405,8 @@ int cpu_do_instruction(struct gb_state *s) {
     } else if (M(op, 0xa8, 0xf8)) { /* XOR reg8 */
         u8* src = REG8(0);
         u8 srcval = src ? *src : mem(HL);
-        s->reg8.A ^= srcval;
-        s->reg8.F = s->reg8.A ? 0 : FLAG_Z;
+        A ^= srcval;
+        F = A ? 0 : FLAG_Z;
 #if 0
     } else if (M(op, 0xb0, 0xf8)) { /* OR reg8 */
     } else if (M(op, 0xb8, 0xf8)) { /* CP reg8 */
@@ -371,7 +422,14 @@ int cpu_do_instruction(struct gb_state *s) {
     } else if (M(op, 0xc6, 0xff)) { /* ADD A, imm8*/
     } else if (M(op, 0xc7, 0xc7)) { /* RST imm8 */
     } else if (M(op, 0xc9, 0xff)) { /* RET */
+#endif
     } else if (M(op, 0xcd, 0xff)) { /* CALL imm16 */
+        u16 dst = IMM16;
+        s->pc += 2;
+        mmu_write(s, --(s->sp), s->pc & 0xff);
+        mmu_write(s, --(s->sp), (s->pc & 0xff00) >> 8);
+        s->pc = dst;
+#if 0
     } else if (M(op, 0xce, 0xff)) { /* ADC imm8 */
     } else if (M(op, 0xd6, 0xff)) { /* SUB imm8 */
     } else if (M(op, 0xd9, 0xff)) { /* RETI */
@@ -381,9 +439,17 @@ int cpu_do_instruction(struct gb_state *s) {
     } else if (M(op, 0xe6, 0xff)) { /* AND imm8 */
     } else if (M(op, 0xe8, 0xff)) { /* ADD SP, imm8s */
     } else if (M(op, 0xe9, 0xff)) { /* LD PC, HL */
+#endif
     } else if (M(op, 0xea, 0xff)) { /* LD (imm16), A */
+        mmu_write(s, IMM16, A);
+        s->pc += 2;
+#if 0
     } else if (M(op, 0xee, 0xff)) { /* XOR imm8 */
+#endif
     } else if (M(op, 0xf0, 0xff)) { /* LD A, (0xff00 + imm8) */
+        A = mmu_read(s, 0xff00 + IMM8);
+        s->pc++;
+#if 0
     } else if (M(op, 0xf2, 0xff)) { /* LD A, (0xff00 + C) */
 #endif
     } else if (M(op, 0xf3, 0xff)) { /* DI */
@@ -392,7 +458,11 @@ int cpu_do_instruction(struct gb_state *s) {
     } else if (M(op, 0xf6, 0xff)) { /* OR imm8 */
     } else if (M(op, 0xf8, 0xff)) { /* LD HL, SP + imm8 */
     } else if (M(op, 0xf9, 0xff)) { /* LD SP, HL */
+#endif
     } else if (M(op, 0xfa, 0xff)) { /* LD A, (imm16) */
+        A = mmu_read(s, IMM16);
+        s->pc += 2;
+#if 0
     } else if (M(op, 0xfb, 0xff)) { /* EI */
     } else if (M(op, 0xfe, 0xff)) { /* CP imm8 */
 #endif
