@@ -205,8 +205,7 @@ static void cpu_handle_interrupts(struct gb_state *s) {
             s->interrupts_master_enabled = 0;
             s->interrupts_request ^= 1 << i;
 
-            mmu_write(s, --(s->sp), (s->pc & 0xff00) >> 8);
-            mmu_write(s, --(s->sp),  s->pc & 0x00ff);
+            mmu_push16(s, s->pc);
 
             s->pc = i * 0x8 + 0x40;
 
@@ -481,9 +480,7 @@ int cpu_do_instruction(struct gb_state *s) {
 
     } else if (M(op, 0xc1, 0xcf)) { /* POP reg16 */
         u16 *dst = REG16S(4);
-        u8 b1 = mem(s->sp++);
-        u8 b2 = mem(s->sp++);
-        *dst = (b1 << 8) | b2;
+        *dst = mmu_pop16(s);
 #if 0
     } else if (M(op, 0xc2, 0xe7)) { /* JP cond, imm16 */
 #endif
@@ -494,8 +491,7 @@ int cpu_do_instruction(struct gb_state *s) {
 #endif
     } else if (M(op, 0xc5, 0xcf)) { /* PUSH reg16 */
         u16 *src = REG16S(4);
-        mmu_write(s, --(s->sp), *src & 0xff);
-        mmu_write(s, --(s->sp), (*src & 0xff00) >> 8);
+        mmu_push16(s,*src);
 #if 0
     } else if (M(op, 0xc6, 0xff)) { /* ADD A, imm8 */
     } else if (M(op, 0xc7, 0xc7)) { /* RST imm8 */
@@ -503,9 +499,7 @@ int cpu_do_instruction(struct gb_state *s) {
 #endif
     } else if (M(op, 0xcd, 0xff)) { /* CALL imm16 */
         u16 dst = IMM16;
-        s->pc += 2;
-        mmu_write(s, --(s->sp), s->pc & 0xff);
-        mmu_write(s, --(s->sp), (s->pc & 0xff00) >> 8);
+        mmu_push16(s, s->pc + 2);
         s->pc = dst;
 #if 0
     } else if (M(op, 0xce, 0xff)) { /* ADC imm8 */

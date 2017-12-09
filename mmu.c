@@ -490,3 +490,23 @@ u8 mmu_read(struct gb_state *s, u16 location) {
     }
     return 0;
 }
+
+u16 mmu_read16(struct gb_state *s, u16 location) {
+    return mmu_read(s, location) | ((u16)mmu_read(s, location + 1) << 8);
+}
+
+void mmu_write16(struct gb_state *s, u16 location, u16 value) {
+    mmu_write(s, location, value & 0xff);
+    mmu_write(s, location + 1, value >> 8);
+}
+
+u16 mmu_pop16(struct gb_state *s) {
+    u16 val = mmu_read16(s, s->sp);
+    s->sp += 2;
+    return val;
+}
+
+void mmu_push16(struct gb_state *s, u16 value) {
+    s->sp -= 2;
+    mmu_write16(s, s->sp, value);
+}

@@ -32,4 +32,9 @@
 u8 mmu_read(struct gb_state *s, u16 location);
 void mmu_write(struct gb_state *s, u16 location, u8 value);
 
+u16 mmu_read16(struct gb_state *s, u16 location);
+void mmu_write16(struct gb_state *s, u16 location, u16 value);
+u16 mmu_pop16(struct gb_state *s);
+void mmu_push16(struct gb_state *s, u16 value);
+
 #endif
