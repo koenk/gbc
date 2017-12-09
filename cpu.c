@@ -85,7 +85,7 @@ void cpu_reset_state(struct gb_state* s)
     s->sp = 0xFFFE;
     s->pc = 0x0100;
 
-    if (1 || s->rom_type == 1) {
+    if (s->gb_type == GB_TYPE_CGB) {
         s->reg16.AF = 0x1180;
         s->reg16.BC = 0x0000;
         s->reg16.DE = 0xff56;

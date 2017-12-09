@@ -104,13 +104,15 @@ void read_file(char *filename, u8 **src, size_t *size) {
     fclose(fp);
 }
 
-struct gb_state *new_gb_state(u8 *bios, u8 *rom, int rom_type) {
+struct gb_state *new_gb_state(u8 *bios, u8 *rom, enum gb_type gb_type) {
     struct gb_state *s = calloc(1, sizeof(struct gb_state));
     assert(s);
 
     s->rom = rom;
+    assert(gb_type == GB_TYPE_GB);
+
     s->bios = bios;
-    s->rom_type = rom_type;
+    s->gb_type = gb_type;
 
     /* Initialize lookup tables for accessing regs */
     s->reg8_lut[0] = &s->reg8.B;
@@ -141,7 +143,7 @@ int main(int argc, char *argv[]) {
     size_t bios_size;
 
     char *romname = "test.gb";
-    int rom_type = 0; /* TODO? */
+    enum gb_type gb_type = GB_TYPE_GB;
     if (argc > 2) {
         printf("Usage: %s [rom]\n", argv[0]);
         exit(1);
@@ -150,13 +152,12 @@ int main(int argc, char *argv[]) {
 
 
     read_file(romname, &rom, &romsize);
-
     read_file("bios.bin", &bios, &bios_size);
     assert(bios_size == 256);
 
-    gb_state = new_gb_state(bios, rom, rom_type);
-
     print_rom_header_info(rom);
+
+    gb_state = new_gb_state(bios, rom, gb_type);
 
     disassemble_bootblock(gb_state);
 

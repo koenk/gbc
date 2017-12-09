@@ -56,12 +56,16 @@ typedef int64_t s64;
 #define FLAG_N 0x40
 #define FLAG_Z 0x80
 
+enum gb_type {
+    GB_TYPE_GB,
+    GB_TYPE_CGB,
+};
 
 /* TODO split this up into module-managed components (cpu, mmu, ...) */
 struct gb_state
 {
     u8 *rom;
-    int rom_type;
+    enum gb_type gb_type;
     u8* bios;
     u8 in_bios:1;
 
