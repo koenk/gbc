@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-// Windows has no gettimeofday() (or sys/time.h for that matter).
+/* Windows has no gettimeofday() (or sys/time.h for that matter). */
 #ifdef _MSC_VER
     #include "wintime.h"
 #else
@@ -89,7 +89,7 @@ void read_file(char *filename, u8 **src, size_t *size) {
         exit(1);
     }
 
-    // get the file size
+    /* Get the file size */
     fseek(fp, 0L, SEEK_END);
     long allocsize = ftell(fp);
     rewind(fp);
@@ -104,56 +104,65 @@ void read_file(char *filename, u8 **src, size_t *size) {
     fclose(fp);
 }
 
-int main(void) {
-    //char filename[] = "pkmn_blue.gb"; int rom_type = 0;
-    //char filename[] = "pkmn_silver.gbc"; int rom_type = 1;
-    char filename[] = "test.gb"; int rom_type = 0;
+struct gb_state *new_gb_state(u8 *bios, u8 *rom, int rom_type) {
+    struct gb_state *s = calloc(1, sizeof(struct gb_state));
+    assert(s);
+
+    s->rom = rom;
+    s->bios = bios;
+    s->rom_type = rom_type;
+
+    /* Initialize lookup tables for accessing regs */
+    s->reg8_lut[0] = &s->reg8.B;
+    s->reg8_lut[1] = &s->reg8.C;
+    s->reg8_lut[2] = &s->reg8.D;
+    s->reg8_lut[3] = &s->reg8.E;
+    s->reg8_lut[4] = &s->reg8.H;
+    s->reg8_lut[5] = &s->reg8.L;
+    s->reg8_lut[6] = NULL;
+    s->reg8_lut[7] = &s->reg8.A;
+    s->reg16_lut[0] = &s->reg16.BC;
+    s->reg16_lut[1] = &s->reg16.DE;
+    s->reg16_lut[2] = &s->reg16.HL;
+    s->reg16_lut[3] = &s->sp;
+    s->reg16s_lut[0] = &s->reg16.BC;
+    s->reg16s_lut[1] = &s->reg16.DE;
+    s->reg16s_lut[2] = &s->reg16.HL;
+    s->reg16s_lut[3] = &s->reg16.AF;
+
+    return s;
+}
+
+int main(int argc, char *argv[]) {
     struct gb_state *gb_state;
-    u8 *file;
-    size_t filesize;
+    u8 *rom;
+    size_t romsize;
     u8 *bios;
     size_t bios_size;
 
-    read_file(filename, &file, &filesize);
+    char *romname = "test.gb";
+    int rom_type = 0; /* TODO? */
+    if (argc > 2) {
+        printf("Usage: %s [rom]\n", argv[0]);
+        exit(1);
+    } else if (argc == 2)
+        romname = argv[1];
+
+
+    read_file(romname, &rom, &romsize);
 
     read_file("bios.bin", &bios, &bios_size);
     assert(bios_size == 256);
 
-    gb_state = malloc(sizeof(struct gb_state));
-    gb_state->rom = file;
-    gb_state->bios = bios;
-    gb_state->rom_type = rom_type;
-    gb_state->reg8_lut[0] = &gb_state->reg8.B;
-    gb_state->reg8_lut[1] = &gb_state->reg8.C;
-    gb_state->reg8_lut[2] = &gb_state->reg8.D;
-    gb_state->reg8_lut[3] = &gb_state->reg8.E;
-    gb_state->reg8_lut[4] = &gb_state->reg8.H;
-    gb_state->reg8_lut[5] = &gb_state->reg8.L;
-    gb_state->reg8_lut[6] = NULL;
-    gb_state->reg8_lut[7] = &gb_state->reg8.A;
-    gb_state->reg16_lut[0] = &gb_state->reg16.BC;
-    gb_state->reg16_lut[1] = &gb_state->reg16.DE;
-    gb_state->reg16_lut[2] = &gb_state->reg16.HL;
-    gb_state->reg16_lut[3] = &gb_state->sp;
-    gb_state->reg16s_lut[0] = &gb_state->reg16.BC;
-    gb_state->reg16s_lut[1] = &gb_state->reg16.DE;
-    gb_state->reg16s_lut[2] = &gb_state->reg16.HL;
-    gb_state->reg16s_lut[3] = &gb_state->reg16.AF;
+    gb_state = new_gb_state(bios, rom, rom_type);
 
-    print_rom_header_info(file);
+    print_rom_header_info(rom);
 
     disassemble_bootblock(gb_state);
 
     printf("==========================\n");
     printf("=== Starting execution ===\n");
     printf("==========================\n\n");
-
-    printf("regs: %p\n", &gb_state->regs);
-    printf("r8 %p %p %p %p %p %p %p %p\n",
-            &gb_state->reg8.B, &gb_state->reg8.C,
-            &gb_state->reg8.D, &gb_state->reg8.E,
-            &gb_state->reg8.H, &gb_state->reg8.L,
-            &gb_state->reg8.A, &gb_state->reg8.F);
 
     int ret = 0;
     int instr = 0;
@@ -187,7 +196,9 @@ int main(void) {
 
     printf("\nEmulated %f sec (%d instr) in %f sec WCT, %f%%\n", instr / 4194304., instr, exectime, seconds_to_emulate / exectime * 100);
 
-    free(file);
+    free(gb_state);
+    free(rom);
+    free(bios);
 
     #ifdef WIN32
         while (1);
