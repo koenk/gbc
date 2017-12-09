@@ -284,7 +284,6 @@ static void cpu_handle_LCD(struct gb_state *s, int op_cycles) {
 #define BC s->reg16.BC
 #define DE s->reg16.DE
 #define HL s->reg16.HL
-#define PC (s->pc)
 #define M(op, value, mask) (((op) & (mask)) == (value))
 #define mem(loc) (mmu_read(s, loc))
 #define IMM8  (mmu_read(s, s->pc))
