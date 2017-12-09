@@ -184,14 +184,6 @@ void cpu_print_regs(struct gb_state *s) {
     printf("\t%04x\t%04x\t%04x\t%04x\t%04x\t%04x\t\t%04x\t%d%d%d%d\n",
             s->reg16.AF, s->reg16.BC, s->reg16.DE, s->reg16.HL, s->sp, s->pc,
             s->io_lcd_LY, s->flags.ZF, s->flags.NF, s->flags.HF, s->flags.CF);
-    printf("\t%02x\t%02x\t%02x\t%02x\t%02x\t%02x\t%02x\t%02x\n",
-            s->reg8.A, s->reg8.F,
-            s->reg8.B, s->reg8.C,
-            s->reg8.D, s->reg8.E,
-            s->reg8.H, s->reg8.L);
-    /*
-    printf("\tZ:%d\tN:%d\tH:%d\tC:%d\t\n\n", s->flags.Z, s->flags.N, s->flags.H, s->flags.C);
-    */
 }
 
 static void cpu_handle_interrupts(struct gb_state *s) {
