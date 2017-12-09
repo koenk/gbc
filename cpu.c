@@ -1,6 +1,7 @@
 /*
  * Flag info per instruction:
  * http://www.chrisantonellis.com/files/gameboy/gb-instructions.txt
+ * http://gameboy.mongenel.com/dmg/opcodes.html
  *
  * BIOS explanation:
  * https://realboyemulator.wordpress.com/2013/01/03/a-look-at-the-game-boy-bootstrap-let-the-fun-begin/
