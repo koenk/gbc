@@ -5,7 +5,7 @@ CC = clang
 RM = rm -fv
 
 W_FLAGS = -Wall -Wextra -Werror-implicit-function-declaration -Wshadow
-CFLAGS = -MD -std=c11 -g -O2 $(W_FLAGS)
+CFLAGS = -MD -std=c11 -g3 -O0 $(W_FLAGS)
 LFLAGS = -lm
 
 all: $(PROGNAME)
