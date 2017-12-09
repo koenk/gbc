@@ -171,8 +171,10 @@ void cpu_reset_state(struct gb_state* s)
     s->mem_latch_rtc = 0x01;
     memset(s->mem_RTC, 0, 0x05);
 
+    /*
     s->in_bios = 1;
     s->pc = 0;
+    */
 
 }
 
