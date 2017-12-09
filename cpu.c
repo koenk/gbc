@@ -17,7 +17,7 @@
 static void cpu_handle_interrupts(struct gb_state *state);
 static void cpu_handle_LCD(struct gb_state *state, int op_cycles);
 
-static const int GB_FREQ = 4194304; // Hz
+static const int GB_FREQ = 4194304; /* Hz */
 static const int GB_LCD_WIDTH = 160;
 static const int GB_LCD_HEIGHT = 144;
 
@@ -33,43 +33,43 @@ static const int GB_LCD_MODE_3_CLKS = 172;
 static const u8 flagmasks[] = { FLAG_Z, FLAG_Z, FLAG_C, FLAG_C };
 
 static int cycles_per_instruction[] = {
-  // 0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f
-     4, 12,  8,  8,  4,  4,  8,  4, 20,  8,  8,  8,  4,  4,  8,  4, // 0
-     4, 12,  8,  8,  4,  4,  8,  4, 12,  8,  8,  8,  4,  4,  8,  4, // 1
-     8, 12,  8,  8,  4,  4,  8,  4,  8,  8,  8,  8,  4,  4,  8,  4, // 2
-     8, 12,  8,  8, 12, 12, 12,  4,  8,  8,  8,  8,  4,  4,  8,  4, // 3
-     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4, // 4
-     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4, // 5
-     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4, // 6
-     8,  8,  8,  8,  8,  8,  4,  8,  4,  4,  4,  4,  4,  4,  8,  4, // 7
-     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4, // 8
-     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4, // 9
-     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4, // a
-     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  8,  4,  8,  4, // b
-     8, 12, 12, 16, 12, 16,  8, 16,  8, 16, 12,  0, 12, 24,  8, 16, // c
-     8, 12, 12,  4, 12, 16,  8, 16,  8, 16, 12,  4, 12,  4,  8, 16, // d
-    12, 12,  8,  4,  4, 16,  8, 16, 16,  4, 16,  4,  4,  4,  8, 16, // e
-    12, 12,  8,  4,  4, 16,  8, 16, 12,  8, 16,  4,  0,  4,  8, 16, // f
+  /* 0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f       */
+     4, 12,  8,  8,  4,  4,  8,  4, 20,  8,  8,  8,  4,  4,  8,  4, /* 0 */
+     4, 12,  8,  8,  4,  4,  8,  4, 12,  8,  8,  8,  4,  4,  8,  4, /* 1 */
+     8, 12,  8,  8,  4,  4,  8,  4,  8,  8,  8,  8,  4,  4,  8,  4, /* 2 */
+     8, 12,  8,  8, 12, 12, 12,  4,  8,  8,  8,  8,  4,  4,  8,  4, /* 3 */
+     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4, /* 4 */
+     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4, /* 5 */
+     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4, /* 6 */
+     8,  8,  8,  8,  8,  8,  4,  8,  4,  4,  4,  4,  4,  4,  8,  4, /* 7 */
+     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4, /* 8 */
+     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4, /* 9 */
+     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4, /* a */
+     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  8,  4,  8,  4, /* b */
+     8, 12, 12, 16, 12, 16,  8, 16,  8, 16, 12,  0, 12, 24,  8, 16, /* c */
+     8, 12, 12,  4, 12, 16,  8, 16,  8, 16, 12,  4, 12,  4,  8, 16, /* d */
+    12, 12,  8,  4,  4, 16,  8, 16, 16,  4, 16,  4,  4,  4,  8, 16, /* e */
+    12, 12,  8,  4,  4, 16,  8, 16, 12,  8, 16,  4,  0,  4,  8, 16, /* f */
 };
 
 static int cycles_per_instruction_cb[] = {
-  // 0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f
-     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // 0
-     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // 1
-     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // 2
-     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // 3
-     8,  8,  8,  8,  8,  8, 12,  8,  8,  8,  8,  8,  8,  8, 12,  8, // 4
-     8,  8,  8,  8,  8,  8, 12,  8,  8,  8,  8,  8,  8,  8, 12,  8, // 5
-     8,  8,  8,  8,  8,  8, 12,  8,  8,  8,  8,  8,  8,  8, 12,  8, // 6
-     8,  8,  8,  8,  8,  8, 12,  8,  8,  8,  8,  8,  8,  8, 12,  8, // 7
-     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // 8
-     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // 9
-     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // a
-     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // b
-     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // c
-     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // d
-     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // e
-     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, // f
+  /* 0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f       */
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, /* 0 */
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, /* 1 */
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, /* 2 */
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, /* 3 */
+     8,  8,  8,  8,  8,  8, 12,  8,  8,  8,  8,  8,  8,  8, 12,  8, /* 4 */
+     8,  8,  8,  8,  8,  8, 12,  8,  8,  8,  8,  8,  8,  8, 12,  8, /* 5 */
+     8,  8,  8,  8,  8,  8, 12,  8,  8,  8,  8,  8,  8,  8, 12,  8, /* 6 */
+     8,  8,  8,  8,  8,  8, 12,  8,  8,  8,  8,  8,  8,  8, 12,  8, /* 7 */
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, /* 8 */
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, /* 9 */
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, /* a */
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, /* b */
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, /* c */
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, /* d */
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, /* e */
+     8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, /* f */
 };
 
 void cpu_reset_state(struct gb_state* s)
@@ -192,7 +192,7 @@ void cpu_print_regs(struct gb_state *s) {
 }
 
 static void cpu_handle_interrupts(struct gb_state *s) {
-    // Does NOT check for interupts enabled master.
+    /* Does NOT check for interupts enabled master. */
     u8 interrupts = s->interrupts_enable & s->interrupts_request;
 
     printf("Executing interrupt %d.\n", interrupts);
@@ -214,56 +214,57 @@ static void cpu_handle_interrupts(struct gb_state *s) {
 }
 
 static void cpu_handle_LCD(struct gb_state *s, int op_cycles) {
-    // The LCD goes through several states.
-    // 0 = HBlank, 1 = VBlank, 2 = reading OAM, 3 = reading OAM and VRAM
-    // 2 and 3 are between each HBlank
-    // So the cycle goes like: 2330002330002330002330001111..1111233000...
-    //                         OBBHHHOBBHHHOBBHHHOBBHHHVVVV..VVVVOBBHHH...
-    // The entire cycle takes 70224 clks. (so that's about 60FPS)
-    // HBlank takes about 201-207 cycles. VBlank 4560 clks.
-    // 2 takes about 77-83 and 3 about 169-175 clks.
+    /* The LCD goes through several states.
+     * 0 = HBlank, 1 = VBlank, 2 = reading OAM, 3 = reading OAM and VRAM
+     * 2 and 3 are between each HBlank
+     * So the cycle goes like: 2330002330002330002330001111..1111233000...
+     *                         OBBHHHOBBHHHOBBHHHOBBHHHVVVV..VVVVOBBHHH...
+     * The entire cycle takes 70224 clks. (so that's about 60FPS)
+     * HBlank takes about 201-207 cycles. VBlank 4560 clks.
+     * 2 takes about 77-83 and 3 about 169-175 clks.
+     */
 
     s->lcd_mode_clks_left -= op_cycles;
 
     if (s->lcd_mode_clks_left < 0) {
         switch (s->io_lcd_STAT & 3) {
-        case 0: // HBlank
-            if (s->io_lcd_LY == 143) { // Go into VBlank (1)
+        case 0: /* HBlank */
+            if (s->io_lcd_LY == 143) { /* Go into VBlank (1) */
                 s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 1;
                 s->lcd_mode_clks_left = GB_LCD_MODE_1_CLKS;
                 s->interrupts_request |= 1 << 0;
-            } else { // Back into OAM (2)
+            } else { /* Back into OAM (2) */
                 s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 2;
                 s->lcd_mode_clks_left = GB_LCD_MODE_2_CLKS;
             }
             s->io_lcd_LY = (s->io_lcd_LY + 1) % (GB_LCD_LY_MAX + 1);
             s->io_lcd_STAT = (s->io_lcd_STAT & 0xfb) | (s->io_lcd_LY == s->io_lcd_LYC);
             break;
-        case 1: // VBlank, Back to OAM (2)
+        case 1: /* VBlank, Back to OAM (2) */
             s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 2;
             s->lcd_mode_clks_left = GB_LCD_MODE_2_CLKS;
             break;
-        case 2: // OAM, onto OAM+VRAM (3)
+        case 2: /* OAM, onto OAM+VRAM (3) */
             s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 3;
             s->lcd_mode_clks_left = GB_LCD_MODE_3_CLKS;
             break;
-        case 3: // OAM+VRAM, let's HBlank (0)
+        case 3: /* OAM+VRAM, let's HBlank (0) */
             s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 0;
             s->lcd_mode_clks_left = GB_LCD_MODE_0_CLKS;
             break;
         }
     }
 
-    if (s->io_lcd_STAT & (1 << 6) && s->io_lcd_STAT & (1 << 2)) // LY=LYC inter
+    if (s->io_lcd_STAT & (1 << 6) && s->io_lcd_STAT & (1 << 2)) /* LY=LYC int */
         s->interrupts_request |= 1 << 1;
 
-    if (s->io_lcd_STAT & (1 << 5) && (s->io_lcd_STAT & 3) == 2) // Mode 2 inter
+    if (s->io_lcd_STAT & (1 << 5) && (s->io_lcd_STAT & 3) == 2) /* Mode 2 int */
         s->interrupts_request |= 1 << 1;
 
-    if (s->io_lcd_STAT & (1 << 4) && (s->io_lcd_STAT & 3) == 1) // Mode 1 inter
+    if (s->io_lcd_STAT & (1 << 4) && (s->io_lcd_STAT & 3) == 1) /* Mode 1 int */
         s->interrupts_request |= 1 << 1;
 
-    if (s->io_lcd_STAT & (1 << 3) && (s->io_lcd_STAT & 3) == 0) // Mode 0 inter
+    if (s->io_lcd_STAT & (1 << 3) && (s->io_lcd_STAT & 3) == 0) /* Mode 0 int */
         s->interrupts_request |= 1 << 1;
 }
 
@@ -297,10 +298,10 @@ static int do_cb_instruction(struct gb_state *s) {
     u8 op = mmu_read(s, s->pc++);
 
 #if 0
-    if (M(op, 0x00, 0xf8)) { // RLC reg8
-    else if (M(op, 0x08, 0xf8)) { // RRC reg8
+    if (M(op, 0x00, 0xf8)) { /* RLC reg8 */
+    else if (M(op, 0x08, 0xf8)) { /* RRC reg8 */
 #endif
-    if (M(op, 0x10, 0xf8)) { // RL reg8
+    if (M(op, 0x10, 0xf8)) { /* RL reg8 */
         u8 *reg = REG8(0);
         u8 res = *reg << 1 | (CF ? 1 : 0);
         NF = 0;
@@ -309,13 +310,13 @@ static int do_cb_instruction(struct gb_state *s) {
         *reg = res;
         ZF = res == 0;
 #if 0
-    else if (M(op, 0x18, 0xf8)) { // RR reg8
-    else if (M(op, 0x20, 0xf8)) { // SLA reg8
-    else if (M(op, 0x28, 0xf8)) { // SRA reg8
-    else if (M(op, 0x30, 0xf8)) { // SWAP reg8
-    else if (M(op, 0x38, 0xf8)) { // SRL reg8
+    else if (M(op, 0x18, 0xf8)) { /* RR reg8 */
+    else if (M(op, 0x20, 0xf8)) { /* SLA reg8 */
+    else if (M(op, 0x28, 0xf8)) { /* SRA reg8 */
+    else if (M(op, 0x30, 0xf8)) { /* SWAP reg8 */
+    else if (M(op, 0x38, 0xf8)) { /* SRL reg8 */
 #endif
-    } else if (M(op, 0x40, 0xc0)) { // BIT bit, reg8
+    } else if (M(op, 0x40, 0xc0)) { /* BIT bit, reg8 */
         u8 bit = (op >> 3) & 7;
         u8 *reg = REG8(0);
         u8 res = *reg & (1 << bit);
@@ -323,8 +324,8 @@ static int do_cb_instruction(struct gb_state *s) {
         NF = 0;
         HF = 1;
 #if 0
-    else if (M(op, 0x80, 0xc0)) { // RES bit, reg8
-    else if (M(op, 0xc0, 0xc0)) { // RRC bit, reg8
+    else if (M(op, 0x80, 0xc0)) { /* RES bit, reg8 */
+    else if (M(op, 0xc0, 0xc0)) { /* RRC bit, reg8 */
 #endif
     } else {
         s->pc -= 2;
@@ -334,19 +335,18 @@ static int do_cb_instruction(struct gb_state *s) {
 }
 
 int cpu_do_instruction(struct gb_state *s) {
-    // TODO:
-    // * timer
+    /*
+     * TODO:
+     * * timer
+     */
 
     u8 op;
-    //u8 temp1, temp2;
-    //s8 stemp;
-    //u16 ltemp;
     int op_cycles;
 
     if (s->interrupts_master_enabled && (s->interrupts_enable & s->interrupts_request)) {
         printf("handle interrupts\n");
         cpu_handle_interrupts(s);
-        return 0; // temp?
+        return 0; /* temp? */
     }
 
     op = mmu_read(s, s->pc++);
@@ -367,14 +367,14 @@ int cpu_do_instruction(struct gb_state *s) {
         return 0;
     }
 
-    if (M(op, 0x00, 0xff)) { // NOP
+    if (M(op, 0x00, 0xff)) { /* NOP */
     } else if (M(op, 0x01, 0xcf)) { /* LD reg16, u16 */
         u16 *dst = REG16(4);
         *dst = IMM16;
         s->pc += 2;
 #if 0
     } else if (M(op, 0x02, 0xff)) { /* LD (BC), A */
-    } else if (M(op, 0x03, 0xcf)) { /* INC reg16*/
+    } else if (M(op, 0x03, 0xcf)) { /* INC reg16 */
 #endif
     } else if (M(op, 0x04, 0xc7)) { /* INC reg8 */
         u8* reg = REG8(3);
@@ -400,7 +400,7 @@ int cpu_do_instruction(struct gb_state *s) {
     } else if (M(op, 0x07, 0xff)) { /* RCLA */
     } else if (M(op, 0x08, 0xff)) { /* LD (imm16), SP */
     } else if (M(op, 0x09, 0xcf)) { /* ADD HL, reg16 */
-    } else if (M(op, 0x0a, 0xff)) { /* LD A, (BC)*/
+    } else if (M(op, 0x0a, 0xff)) { /* LD A, (BC) */
     } else if (M(op, 0x0b, 0xcf)) { /* DEC reg16 */
     } else if (M(op, 0x0f, 0xff)) { /* RRCA */
     } else if (M(op, 0x10, 0xff)) { /* STOP */
@@ -418,7 +418,7 @@ int cpu_do_instruction(struct gb_state *s) {
 #if 0
     } else if (M(op, 0x1f, 0xff)) { /* RRA */
 #endif
-    } else if (M(op, 0x20, 0xe7)) { /* JR cond, off8*/
+    } else if (M(op, 0x20, 0xe7)) { /* JR cond, off8 */
         u8 flag = (op >> 3) & 3;
         if (((F & flagmasks[flag]) ? 1 : 0) == (flag & 1))
             s->pc += (s8)IMM8;
@@ -460,7 +460,7 @@ int cpu_do_instruction(struct gb_state *s) {
 #if 0
     } else if (M(op, 0x88, 0xf8)) { /* ADC A, reg8 */
     } else if (M(op, 0x90, 0xf8)) { /* SUB reg8 */
-    } else if (M(op, 0x98, 0xf8)) { /* SBC A, reg8*/
+    } else if (M(op, 0x98, 0xf8)) { /* SBC A, reg8 */
     } else if (M(op, 0xa0, 0xf8)) { /* AND reg8 */
 #endif
     } else if (M(op, 0xa8, 0xf8)) { /* XOR reg8 */
@@ -471,27 +471,31 @@ int cpu_do_instruction(struct gb_state *s) {
 #if 0
     } else if (M(op, 0xb0, 0xf8)) { /* OR reg8 */
     } else if (M(op, 0xb8, 0xf8)) { /* CP reg8 */
-    } else if (M(op, 0xc0, 0xe7)) { /* RET cond*/
 #endif
-    } else if (M(op, 0xc1, 0xcf)) { /* POP reg16*/
+    } else if (M(op, 0xc0, 0xe7)) { /* RET cond */
+        u8 low = mmu_read(s, s->sp++);
+        u8 high = mmu_read(s, s->sp++);
+        s->pc = low | (high << 8);
+
+    } else if (M(op, 0xc1, 0xcf)) { /* POP reg16 */
         u16 *dst = REG16S(4);
         u8 b1 = mem(s->sp++);
         u8 b2 = mem(s->sp++);
         *dst = (b1 << 8) | b2;
 #if 0
-    } else if (M(op, 0xc2, 0xe7)) { /* JP cond, imm16*/
+    } else if (M(op, 0xc2, 0xe7)) { /* JP cond, imm16 */
 #endif
     } else if (M(op, 0xc3, 0xff)) { /* JP imm16 */
-        PC = IMM16;
+        s->pc = IMM16;
 #if 0
-    } else if (M(op, 0xc4, 0xe7)) { /* CALL cond, imm16*/
+    } else if (M(op, 0xc4, 0xe7)) { /* CALL cond, imm16 */
 #endif
-    } else if (M(op, 0xc5, 0xcf)) { /* PUSH reg16*/
+    } else if (M(op, 0xc5, 0xcf)) { /* PUSH reg16 */
         u16 *src = REG16S(4);
         mmu_write(s, --(s->sp), *src & 0xff);
         mmu_write(s, --(s->sp), (*src & 0xff00) >> 8);
 #if 0
-    } else if (M(op, 0xc6, 0xff)) { /* ADD A, imm8*/
+    } else if (M(op, 0xc6, 0xff)) { /* ADD A, imm8 */
     } else if (M(op, 0xc7, 0xc7)) { /* RST imm8 */
     } else if (M(op, 0xc9, 0xff)) { /* RET */
 #endif
