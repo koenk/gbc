@@ -14,40 +14,38 @@
     } while(0)
 
 void mmu_write(struct gb_state *s, u16 location, u8 value) {
-    // MBC3
-
     MMU_DEBUG_W("Mem write (%x) %x: ", location, value);
     switch (location & 0xf000) {
-    case 0x0000: // 0000 - 1FFF
+    case 0x0000: /* 0000 - 1FFF */
     case 0x1000:
         MMU_DEBUG_W("RAM+Timer enable");
-        // Dummy, we always have those enabled.
+        /* Dummy, we always have those enabled. */
         break;
-    case 0x2000: // 2000 - 3FFF
+    case 0x2000: /* 2000 - 3FFF */
     case 0x3000:
         MMU_DEBUG_W("ROM bank number");
         s->mem_bank_rom = value;
         break;
-    case 0x4000: // 4000 - 5FFF
+    case 0x4000: /* 4000 - 5FFF */
     case 0x5000:
         MMU_DEBUG_W("RAM bank number -OR- RTC register select");
         s->mem_ram_rtc_select = value;
         break;
-    case 0x6000: // 6000 - 7FFF
+    case 0x6000: /* 6000 - 7FFF */
     case 0x7000:
         MMU_DEBUG_W("Latch clock data");
         if (s->mem_latch_rtc == 0x01 && value == 0x01) {
-            // TODO... actually latch something?
+            /* TODO... actually latch something? */
             s->mem_latch_rtc = s->mem_latch_rtc;
         }
         s->mem_latch_rtc = value;
         break;
-    case 0x8000: // 8000 - 9FFF
+    case 0x8000: /* 8000 - 9FFF */
     case 0x9000:
         MMU_DEBUG_W("VRAM");
         s->mem_VRAM[s->mem_bank_vram][location - 0x8000] = value;
         break;
-    case 0xa000: // A000 - BFFF
+    case 0xa000: /* A000 - BFFF */
     case 0xb000:
         MMU_DEBUG_W("RAM (sw)/RTC");
         if (s->mem_ram_rtc_select < 0x04)
@@ -57,16 +55,16 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
         else
             pause();
         break;
-    case 0xc000: // C000 - CFFF
+    case 0xc000: /* C000 - CFFF */
         MMU_DEBUG_W("WRAM B0  @%x", (location - 0xc000));
         s->mem_WRAM[0][location - 0xc000] = value;
         break;
-    case 0xd000: // D000 - DFFF
+    case 0xd000: /* D000 - DFFF */
         MMU_DEBUG_W("WRAM B1-7 (switchable) @%x, bank %d", location - 0xd000,
                 s->mem_bank_wram);
         s->mem_WRAM[s->mem_bank_wram][location - 0xd000] = value;
         break;
-    case 0xe000: // E000 - FDFF
+    case 0xe000: /* E000 - FDFF */
         MMU_DEBUG_W("ECHO (0xc000 - 0xfdff) B0");
         pause();
         break;
@@ -75,15 +73,15 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
             MMU_DEBUG_W("ECHO (0xc000 - 0xfdff) B0");
             break;
         }
-        if (location < 0xfea0) { // FE00 - FE9F
+        if (location < 0xfea0) { /* FE00 - FE9F */
             MMU_DEBUG_W("Sprite attribute table");
             break;
         }
-        if (location < 0xff00) { // FEA0 - FEFF
+        if (location < 0xff00) { /* FEA0 - FEFF */
             MMU_DEBUG_W("NOT USABLE");
             break;
         }
-        if (location < 0xff80) { // FF00 - FF7F
+        if (location < 0xff80) { /* FF00 - FF7F */
             MMU_DEBUG_W("I/O ports ");
 
             switch(location) {
@@ -294,7 +292,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
             break;
         }
 
-        if (location < 0xffff) { // FF80 - FFFE
+        if (location < 0xffff) { /* FF80 - FFFE */
             MMU_DEBUG_W("HRAM  @%x", location - 0xff80);
             if (location == 0xffa0) {
                 MMU_DEBUG_W("HRAM FFA0: %x", value);
@@ -302,7 +300,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
             s->mem_HRAM[location - 0xff80] = value;
             break;
         }
-        if (location == 0xffff) { // FFFF
+        if (location == 0xffff) { /* FFFF */
             MMU_DEBUG_W("Interrupt enable");
             s->interrupts_enable = value;
             break;
@@ -315,23 +313,21 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
 }
 
 u8 mmu_read(struct gb_state *s, u16 location) {
-    // MBC3
-
-    //MMU_DEBUG_R("Mem read (%x): ", location);
+    /*MMU_DEBUG_R("Mem read (%x): ", location); */
     if (s->in_bios && location < 0x100)
     {
-        //MMU_DEBUG_R("BIOS: %04x: %02x", location, s->bios[location]);
+        /*MMU_DEBUG_R("BIOS: %04x: %02x", location, s->bios[location]); */
         return s->bios[location];
     }
 
     switch (location & 0xf000) {
-    case 0x0000: // 0000 - 3FFF
+    case 0x0000: /* 0000 - 3FFF */
     case 0x1000:
     case 0x2000:
     case 0x3000:
-        //MMU_DEBUG_R("CA ROM fixed @ %4x", location);
+        /*MMU_DEBUG_R("CA ROM fixed @ %4x", location); */
         return s->rom[location];
-    case 0x4000: // 4000 - 7FFF
+    case 0x4000: /* 4000 - 7FFF */
     case 0x5000:
     case 0x6000:
     case 0x7000:
@@ -340,12 +336,12 @@ u8 mmu_read(struct gb_state *s, u16 location) {
         MMU_DEBUG_R("CA ROM switchable, bank %d, %4x", s->mem_bank_rom, s->mem_bank_rom * 0x4000 + (location - 0x4000));
         return s->rom[s->mem_bank_rom * 0x4000 + (location - 0x4000)];
         break;
-    case 0x8000: // 8000 - 9FFF
+    case 0x8000: /* 8000 - 9FFF */
     case 0x9000:
         MMU_DEBUG_R("VRAM");
         return s->mem_VRAM[s->mem_bank_vram][location - 0x8000];
         break;
-    case 0xa000: // A000 - BFFF
+    case 0xa000: /* A000 - BFFF */
     case 0xb000:
         MMU_DEBUG_R("RAM (sw)/RTC");
         if (s->mem_ram_rtc_select < 0x04)
@@ -355,14 +351,14 @@ u8 mmu_read(struct gb_state *s, u16 location) {
 
         pause();
         return 0;
-    case 0xc000: // C000 - CFFF
+    case 0xc000: /* C000 - CFFF */
         MMU_DEBUG_R("WRAM B0  @%x", (location - 0xc000));
         return s->mem_WRAM[0][location - 0xc000];
-    case 0xd000: // D000 - DFFF
+    case 0xd000: /* D000 - DFFF */
         MMU_DEBUG_R("WRAM B1-7 (switchable) @%x, bank %d", location - 0xd000, s->mem_bank_wram);
         return s->mem_WRAM[s->mem_bank_wram][location - 0xd000];
         break;
-    case 0xe000: // E000 - FDFF
+    case 0xe000: /* E000 - FDFF */
         MMU_DEBUG_R("ECHO (0xc000 - 0xddff) B0");
         pause();
         break;
@@ -372,18 +368,18 @@ u8 mmu_read(struct gb_state *s, u16 location) {
             break;
         }
 
-        if (location < 0xfea0) { // FE00 - FE9F
+        if (location < 0xfea0) { /* FE00 - FE9F */
             MMU_DEBUG_R("Sprite attribute table");
             break;
         }
 
-        if (location < 0xff00) { // FEA0 - FEFF
+        if (location < 0xff00) { /* FEA0 - FEFF */
             MMU_DEBUG_R("NOT USABLE");
             break;
         }
 
-        if (location < 0xff80) { // FF00 - FF7F
-            //MMU_DEBUG_R("I/O ports ");
+        if (location < 0xff80) { /* FF00 - FF7F */
+            /*MMU_DEBUG_R("I/O ports "); */
             switch (location) {
             case 0xff00:
                 MMU_DEBUG_R("Joypad");
@@ -441,7 +437,7 @@ u8 mmu_read(struct gb_state *s, u16 location) {
                 MMU_DEBUG_R("Scroll X");
                 return s->io_lcd_SCX;
             case 0xff44:
-                //MMU_DEBUG_R("LCD LY");
+                /*MMU_DEBUG_R("LCD LY"); */
                 return s->io_lcd_LY;
             case 0xff45:
                 MMU_DEBUG_R("LCD LYC");
@@ -475,11 +471,11 @@ u8 mmu_read(struct gb_state *s, u16 location) {
             MMU_DEBUG_R("UNKNOWN");
             pause();
         }
-        if (location < 0xffff) { // FF80 - FFFE
+        if (location < 0xffff) { /* FF80 - FFFE */
             MMU_DEBUG_R("HRAM  @%x (%d)", location - 0xff80, s->mem_HRAM[location - 0xff80]);
             return s->mem_HRAM[location - 0xff80];
         }
-        if (location == 0xffff) { // FFFF
+        if (location == 0xffff) { /* FFFF */
             MMU_DEBUG_R("Interrupt enable");
             return s->interrupts_enable;
         }
