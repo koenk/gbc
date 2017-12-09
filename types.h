@@ -27,30 +27,6 @@ typedef int64_t s64;
 #define REG_A 7
 #define REG_F 6
 
-    /*
-    inline u8 A(void) { return AF >> 8; };
-    inline void A(u8 n) { AF = (AF & 0xff) | (n << 8); }
-    inline u8 F(void) { return AF & 0xff; };
-    inline void F(u8 n) { AF = (AF & 0xff00) | n; }
-    inline u8 B(void) { return BC >> 8; };
-    inline void B(u8 n) { BC = (BC & 0xff) | (n << 8); }
-    inline u8 C(void) { return BC & 0xff; };
-    inline void C(u8 n) { BC = (BC & 0xff00) | n; }
-    inline u8 D(void) { return DE >> 8; };
-    inline void D(u8 n) { DE = (DE & 0xff) | (n << 8); }
-    inline u8 E(void) { return DE & 0xff; };
-    inline void E(u8 n) { DE = (DE & 0xff00) | n; }
-    inline u8 H(void) { return HL >> 8; };
-    inline void H(u8 n) { HL = (HL & 0xff) | (n << 8); }
-    inline u8 L(void) { return HL & 0xff; };
-    inline void L(u8 n) { HL = (HL & 0xff00) | n; }
-
-    static const u8 FLAG_C = 0x10;
-    static const u8 FLAG_H = 0x20;
-    static const u8 FLAG_N = 0x40;
-    static const u8 FLAG_Z = 0x80;
-    */
-
 #define FLAG_C 0x10
 #define FLAG_H 0x20
 #define FLAG_N 0x40
