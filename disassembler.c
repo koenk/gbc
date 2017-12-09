@@ -130,6 +130,8 @@ int disassemble_pc(struct gb_state* s, u16 pc)
     u8 temp1, temp2;
     s8 stemp;
 
+    printf("(%.4x)  ", oldpc);
+
     while (*mnem) {
         if (*mnem == '%') {
             mnem++;
