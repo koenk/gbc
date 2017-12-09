@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>
 
 /* Windows has no gettimeofday() (or sys/time.h for that matter). */
 #ifdef _MSC_VER
@@ -11,13 +12,14 @@
 
 #include "types.h"
 #include "cpu.h"
+#include "mmu.h"
 #include "disassembler.h"
 
 void print_rom_header_info(u8* rom) {
     printf("Title: %s\n", &rom[0x134]);
 
     printf("Cart type: ");
-    u8 cart_type = rom[0x147];
+    u8 cart_type = rom[ROMHDR_CARTTYPE];
     switch(cart_type) {
     case 0x00: printf("ROM ONLY\n"); break;
     case 0x01: printf("MBC1\n"); break;
@@ -51,7 +53,7 @@ void print_rom_header_info(u8* rom) {
     }
 
     printf("ROM Size: ");
-    u8 cart_ROM = rom[0x148];
+    u8 cart_ROM = rom[ROMHDR_ROMSIZE];
     switch(cart_ROM) {
     case 0x00: printf("32KB (no banks)\n"); break;
     case 0x01: printf("64KB (4 banks)\n"); break;
@@ -67,7 +69,7 @@ void print_rom_header_info(u8* rom) {
     }
 
     printf("RAM Size: ");
-    u8 cart_RAM = rom[0x149];
+    u8 cart_RAM = rom[ROMHDR_EXTRAMSIZE];
     switch(cart_RAM) {
     case 0x00: printf("None\n"); break;
     case 0x01: printf("2KB\n"); break;
@@ -104,11 +106,26 @@ void read_file(char *filename, u8 **src, size_t *size) {
     fclose(fp);
 }
 
-struct gb_state *new_gb_state(u8 *bios, u8 *rom, enum gb_type gb_type) {
+struct gb_state *new_gb_state(u8 *bios, u8 *rom, size_t rom_inpsize,
+        enum gb_type gb_type) {
+    /* Cart features */
+    int mbc = 0; /* Memory Bank Controller */
+    int extram = 0;
+    int battery = 0;
+    int rtc = 0; /* Real time clock */
+    int rom_banks = 0;
+    int extram_banks = 0;
+    int ram_banks = 0;
+    int vram_banks = 0;
+
+    /* Cart info from header */
+    u8 cart_type = rom[ROMHDR_CARTTYPE];
+    u8 rom_size = rom[ROMHDR_ROMSIZE];
+    u8 extram_size = rom[ROMHDR_EXTRAMSIZE];
+
     struct gb_state *s = calloc(1, sizeof(struct gb_state));
     assert(s);
 
-    s->rom = rom;
     assert(gb_type == GB_TYPE_GB);
 
     s->bios = bios;
@@ -131,6 +148,97 @@ struct gb_state *new_gb_state(u8 *bios, u8 *rom, enum gb_type gb_type) {
     s->reg16s_lut[1] = &s->reg16.DE;
     s->reg16s_lut[2] = &s->reg16.HL;
     s->reg16s_lut[3] = &s->reg16.AF;
+
+    switch (cart_type) {
+    case 0x00:                                              break;
+    case 0x01: mbc = 1;                                     break;
+    case 0x02: mbc = 1; extram = 1;                         break;
+    case 0x03: mbc = 1; extram = 1; battery = 1;            break;
+    case 0x04: mbc = 2;                                     break;
+    case 0x06: mbc = 2;             battery = 1;            break;
+    case 0x08:          extram = 1;                         break;
+    case 0x09:          extram = 1; battery = 1;            break;
+    case 0x0f: mbc = 3;             battery = 1; rtc = 1;   break;
+    case 0x10: mbc = 3; extram = 1; battery = 1; rtc = 1;   break;
+    case 0x11: mbc = 3;                                     break;
+    case 0x12: mbc = 3; extram = 1;                         break;
+    case 0x13: mbc = 3; extram = 1; battery = 1;            break;
+    case 0x15: mbc = 4;                                     break;
+    case 0x16: mbc = 4; extram = 1;                         break;
+    case 0x17: mbc = 4; extram = 1; battery = 1;            break;
+    case 0x19: mbc = 5;                                     break;
+    case 0x1a: mbc = 5; extram = 1;                         break;
+    case 0x1b: mbc = 5; extram = 1; battery = 1;            break;
+    case 0x1c: mbc = 5;                                     break; /* rumble */
+    case 0x1d: mbc = 5; extram = 1;                         break; /* rumble */
+    case 0x1e: mbc = 5; extram = 1; battery = 1;            break; /* rumble */
+    case 0x20: mbc = 6;                                     break;
+    /* MMM01 unsupported */
+    /* MBC7 Sensor not supported */
+    /* Camera not supported */
+    /* Bandai TAMA5 not supported */
+    /* HuCn not supported */
+    default:
+        assert(!"Unsupported cartridge");
+    }
+
+    switch (rom_size) {
+    case 0x00: rom_banks = 2;   break; /* 16K */
+    case 0x01: rom_banks = 4;   break; /* 64K */
+    case 0x02: rom_banks = 8;   break; /* 128K */
+    case 0x03: rom_banks = 16;  break; /* 256K */
+    case 0x04: rom_banks = 32;  break; /* 512K */
+    case 0x05: rom_banks = 64;  break; /* 1M */
+    case 0x06: rom_banks = 128; break; /* 2M */
+    case 0x07: rom_banks = 256; break; /* 4M */
+    case 0x52: rom_banks = 72;  break; /* 1.1M */
+    case 0x53: rom_banks = 80;  break; /* 1.2M */
+    case 0x54: rom_banks = 96;  break; /* 1.5M */
+    default:
+        assert(!"Unsupported ROM size");
+    }
+
+    switch (extram_size) {
+    case 0x00: extram_banks = 0; break; /* None */
+    case 0x01: extram_banks = 1; break; /* 2K */
+    case 0x02: extram_banks = 1; break; /* 8K */
+    case 0x03: extram_banks = 4; break; /* 32K */
+    default:
+        assert(!"Unsupported Ext RAM size");
+    }
+
+    assert((extram == 0 && extram_banks == 0) ||
+           (extram == 1 && extram_banks > 0));
+
+    /* Currently unsupported features. */
+    assert(mbc == 0);
+    assert(extram == 0);
+    assert(battery == 0);
+    assert(rtc == 0);
+
+    if (gb_type == GB_TYPE_GB) {
+        ram_banks = 2;
+        vram_banks = 1;
+    }
+
+    s->mbc = mbc;
+    s->has_extram = extram;
+    s->has_battery = battery;
+    s->has_rtc = rtc;
+
+    s->mem_num_banks_rom = rom_banks;
+    s->mem_num_banks_ram = ram_banks;
+    s->mem_num_banks_extram = extram_banks;
+    s->mem_num_banks_vram = vram_banks;
+
+    s->mem_ROM = malloc(ROM_BANKSIZE * rom_banks);
+    s->mem_RAM = malloc(RAM_BANKSIZE * ram_banks);
+    s->mem_EXTRAM = malloc(EXTRAM_BANKSIZE * ram_banks);
+    s->mem_VRAM = malloc(VRAM_BANKSIZE * vram_banks);
+
+    memset(s->mem_ROM, 0, ROM_BANKSIZE * rom_banks);
+    memcpy(s->mem_ROM, rom, rom_inpsize);
+
 
     return s;
 }
@@ -157,7 +265,7 @@ int main(int argc, char *argv[]) {
 
     print_rom_header_info(rom);
 
-    gb_state = new_gb_state(bios, rom, gb_type);
+    gb_state = new_gb_state(bios, rom, romsize, gb_type);
 
     disassemble_bootblock(gb_state);
 

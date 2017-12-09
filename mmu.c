@@ -24,11 +24,15 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
     case 0x2000: /* 2000 - 3FFF */
     case 0x3000:
         MMU_DEBUG_W("ROM bank number");
+        assert(value > 0);
+        assert(value < s->mem_num_banks_rom);
         s->mem_bank_rom = value;
         break;
     case 0x4000: /* 4000 - 5FFF */
     case 0x5000:
         MMU_DEBUG_W("RAM bank number -OR- RTC register select");
+        assert(value > 0);
+        assert(value < s->mem_num_banks_ram); /* TODO: RTC 08-0C */
         s->mem_ram_rtc_select = value;
         break;
     case 0x6000: /* 6000 - 7FFF */
@@ -43,26 +47,27 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
     case 0x8000: /* 8000 - 9FFF */
     case 0x9000:
         MMU_DEBUG_W("VRAM");
-        s->mem_VRAM[s->mem_bank_vram][location - 0x8000] = value;
+        s->mem_VRAM[s->mem_bank_vram * VRAM_BANKSIZE + location - 0x8000]
+            = value;
         break;
     case 0xa000: /* A000 - BFFF */
     case 0xb000:
-        MMU_DEBUG_W("RAM (sw)/RTC");
+        MMU_DEBUG_W("EXTRAM (sw)/RTC");
         if (s->mem_ram_rtc_select < 0x04)
-            s->mem_RAM[s->mem_ram_rtc_select][location - 0xa000] = value;
+            s->mem_RAM[s->mem_ram_rtc_select * EXTRAM_BANKSIZE + location - 0xa000] = value;
         else if (s->mem_ram_rtc_select >= 0x08 && s->mem_ram_rtc_select <= 0x0c)
             s->mem_RTC[s->mem_ram_rtc_select - 0xa008] = value;
         else
             pause();
         break;
     case 0xc000: /* C000 - CFFF */
-        MMU_DEBUG_W("WRAM B0  @%x", (location - 0xc000));
-        s->mem_WRAM[0][location - 0xc000] = value;
+        MMU_DEBUG_W("RAM B0  @%x", (location - 0xc000));
+        s->mem_RAM[location - 0xc000] = value;
         break;
     case 0xd000: /* D000 - DFFF */
-        MMU_DEBUG_W("WRAM B1-7 (switchable) @%x, bank %d", location - 0xd000,
-                s->mem_bank_wram);
-        s->mem_WRAM[s->mem_bank_wram][location - 0xd000] = value;
+        MMU_DEBUG_W("RAM B1-7 (switchable) @%x, bank %d", location - 0xd000,
+                s->mem_bank_ram);
+        s->mem_RAM[s->mem_bank_ram * RAM_BANKSIZE + location - 0xd000] = value;
         break;
     case 0xe000: /* E000 - FDFF */
         MMU_DEBUG_W("ECHO (0xc000 - 0xfdff) B0");
@@ -276,11 +281,11 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                     s->io_lcd_OBPI = (((s->io_lcd_OBPI & 0x3f) + 1) & 0x3f) | (1 << 7);
                 break;
             case 0xff70:
-                MMU_DEBUG_W("WRAM Bank");
+                MMU_DEBUG_W("RAM Bank");
                 if (value == 0)
-                    s->mem_bank_wram = 1;
+                    s->mem_bank_ram = 1;
                 else if (value < 8)
-                    s->mem_bank_wram = value;
+                    s->mem_bank_ram = value;
                 else
                     pause();
                 break;
@@ -325,38 +330,37 @@ u8 mmu_read(struct gb_state *s, u16 location) {
     case 0x1000:
     case 0x2000:
     case 0x3000:
-        /*MMU_DEBUG_R("CA ROM fixed @ %4x", location); */
-        return s->rom[location];
+        /*MMU_DEBUG_R("ROM B0 @ %4x", location); */
+        return s->mem_ROM[location];
     case 0x4000: /* 4000 - 7FFF */
     case 0x5000:
     case 0x6000:
     case 0x7000:
-        if (location > 0x7e50)
-            pause();
-        MMU_DEBUG_R("CA ROM switchable, bank %d, %4x", s->mem_bank_rom, s->mem_bank_rom * 0x4000 + (location - 0x4000));
-        return s->rom[s->mem_bank_rom * 0x4000 + (location - 0x4000)];
+        MMU_DEBUG_R("ROM B%d, %4x", s->mem_bank_rom, s->mem_bank_rom * 0x4000 + (location - 0x4000));
+        assert(s->mem_num_banks_rom > 0);
+        return s->mem_ROM[s->mem_bank_rom * 0x4000 + (location - 0x4000)];
         break;
     case 0x8000: /* 8000 - 9FFF */
     case 0x9000:
         MMU_DEBUG_R("VRAM");
-        return s->mem_VRAM[s->mem_bank_vram][location - 0x8000];
+        return s->mem_VRAM[s->mem_bank_vram * VRAM_BANKSIZE + location - 0x8000];
         break;
     case 0xa000: /* A000 - BFFF */
     case 0xb000:
-        MMU_DEBUG_R("RAM (sw)/RTC");
+        MMU_DEBUG_R("EXTRAM (sw)/RTC");
         if (s->mem_ram_rtc_select < 0x04)
-            return s->mem_RAM[s->mem_ram_rtc_select][location - 0xa000];
+            return s->mem_RAM[s->mem_ram_rtc_select * EXTRAM_BANKSIZE + location - 0xa000];
         else if (s->mem_ram_rtc_select >= 0x08 && s->mem_ram_rtc_select <= 0x0c)
             return s->mem_RTC[s->mem_ram_rtc_select - 0xa008];
 
         pause();
         return 0;
     case 0xc000: /* C000 - CFFF */
-        MMU_DEBUG_R("WRAM B0  @%x", (location - 0xc000));
-        return s->mem_WRAM[0][location - 0xc000];
+        MMU_DEBUG_R("RAM B0  @%x", (location - 0xc000));
+        return s->mem_RAM[location - 0xc000];
     case 0xd000: /* D000 - DFFF */
-        MMU_DEBUG_R("WRAM B1-7 (switchable) @%x, bank %d", location - 0xd000, s->mem_bank_wram);
-        return s->mem_WRAM[s->mem_bank_wram][location - 0xd000];
+        MMU_DEBUG_R("RAM B%d @%x", s->mem_bank_ram, location - 0xd000);
+        return s->mem_RAM[s->mem_bank_ram * RAM_BANKSIZE + location - 0xd000];
         break;
     case 0xe000: /* E000 - FDFF */
         MMU_DEBUG_R("ECHO (0xc000 - 0xddff) B0");
@@ -464,8 +468,8 @@ u8 mmu_read(struct gb_state *s, u16 location) {
                 MMU_DEBUG_R("Infrared");
                 return s->io_infrared;
             case 0xff70:
-                MMU_DEBUG_R("WRAM bank");
-                return s->mem_bank_wram;
+                MMU_DEBUG_R("RAM bank");
+                return s->mem_bank_ram;
             }
 
             MMU_DEBUG_R("UNKNOWN");

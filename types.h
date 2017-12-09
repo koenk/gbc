@@ -64,7 +64,6 @@ enum gb_type {
 /* TODO split this up into module-managed components (cpu, mmu, ...) */
 struct gb_state
 {
-    u8 *rom;
     enum gb_type gb_type;
     u8* bios;
     u8 in_bios:1;
@@ -166,16 +165,26 @@ struct gb_state
     u8 io_sound_channel4_consec_initial;
 
 
-    int mem_bank_rom, mem_bank_wram, mem_bank_vram;
+    int mem_bank_rom, mem_num_banks_rom;
+    int mem_bank_ram, mem_num_banks_ram;
+    int mem_bank_extram, mem_num_banks_extram;
+    int mem_bank_vram, mem_num_banks_vram;
     u8 mem_ram_rtc_select;
 
-    u8 mem_RAM[4][0x2000];
+    u8 *mem_ROM; /* Between 16K and 4M (banked) */
+    u8 *mem_RAM; /* Internal RAM (WRAM), 8K non-CGB, 32K CGB (banked) */
+    u8 *mem_EXTRAM; /* External (cartridge) RAM, optional, max 32K (banked) */
+    u8 *mem_VRAM; /* Video RAM, 8K non-CGB, 16K CGB (banked) */
     u8 mem_HRAM[0x7f];
-    u8 mem_WRAM[8][0x1000];
-    u8 mem_VRAM[2][0x2000];
 
     u8 mem_latch_rtc;
     u8 mem_RTC[0x05]; // 0x08 - 0x0c
+
+    /* Cartridge hardware (including memory bank controller) */
+    int mbc;
+    char has_extram;
+    char has_battery;
+    char has_rtc;
 };
 
 
