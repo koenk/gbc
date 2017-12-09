@@ -5,7 +5,7 @@
 
 #define MMU_DEBUG_W(fmt, ...) \
     do { \
-        printf(" [MMU] [W] " fmt "\n", ##__VA_ARGS__); \
+        printf(" [MMU] [W] " fmt " @%x: %x\n", ##__VA_ARGS__, location, value); \
     } while(0)
 
 #define MMU_DEBUG_R(fmt, ...) \
@@ -14,7 +14,7 @@
     } while(0)
 
 void mmu_write(struct gb_state *s, u16 location, u8 value) {
-    MMU_DEBUG_W("Mem write (%x) %x: ", location, value);
+    //MMU_DEBUG_W("Mem write (%x) %x: ", location, value);
     switch (location & 0xf000) {
     case 0x0000: /* 0000 - 1FFF */
     case 0x1000:
@@ -46,13 +46,13 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
         break;
     case 0x8000: /* 8000 - 9FFF */
     case 0x9000:
-        MMU_DEBUG_W("VRAM");
+        MMU_DEBUG_W("VRAM (B%d)", s->mem_bank_vram);
         s->mem_VRAM[s->mem_bank_vram * VRAM_BANKSIZE + location - 0x8000]
             = value;
         break;
     case 0xa000: /* A000 - BFFF */
     case 0xb000:
-        MMU_DEBUG_W("EXTRAM (sw)/RTC");
+        MMU_DEBUG_W("EXTRAM (sw)/RTC (B%d)", s->mem_ram_rtc_select);
         if (s->mem_ram_rtc_select < 0x04)
             s->mem_RAM[s->mem_ram_rtc_select * EXTRAM_BANKSIZE + location - 0xa000] = value;
         else if (s->mem_ram_rtc_select >= 0x08 && s->mem_ram_rtc_select <= 0x0c)
@@ -61,21 +61,20 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
             pause();
         break;
     case 0xc000: /* C000 - CFFF */
-        MMU_DEBUG_W("RAM B0  @%x", (location - 0xc000));
+        MMU_DEBUG_W("RAM B0");
         s->mem_RAM[location - 0xc000] = value;
         break;
     case 0xd000: /* D000 - DFFF */
-        MMU_DEBUG_W("RAM B1-7 (switchable) @%x, bank %d", location - 0xd000,
-                s->mem_bank_ram);
+        MMU_DEBUG_W("RAM B%d", s->mem_bank_ram);
         s->mem_RAM[s->mem_bank_ram * RAM_BANKSIZE + location - 0xd000] = value;
         break;
     case 0xe000: /* E000 - FDFF */
-        MMU_DEBUG_W("ECHO (0xc000 - 0xfdff) B0");
+        MMU_DEBUG_W("ECHO (0xc000 - 0xfdff)");
         pause();
         break;
     case 0xf000:
         if (location < 0xfe00) {
-            MMU_DEBUG_W("ECHO (0xc000 - 0xfdff) B0");
+            MMU_DEBUG_W("ECHO (0xc000 - 0xfdff)");
             break;
         }
         if (location < 0xfea0) { /* FE00 - FE9F */
@@ -87,7 +86,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
             break;
         }
         if (location < 0xff80) { /* FF00 - FF7F */
-            MMU_DEBUG_W("I/O ports ");
+            //MMU_DEBUG_W("I/O ports ");
 
             switch(location) {
             case 0xff00:
@@ -298,7 +297,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
         }
 
         if (location < 0xffff) { /* FF80 - FFFE */
-            MMU_DEBUG_W("HRAM  @%x", location - 0xff80);
+            MMU_DEBUG_W("HRAM ");
             if (location == 0xffa0) {
                 MMU_DEBUG_W("HRAM FFA0: %x", value);
             }
@@ -476,7 +475,7 @@ u8 mmu_read(struct gb_state *s, u16 location) {
             pause();
         }
         if (location < 0xffff) { /* FF80 - FFFE */
-            MMU_DEBUG_R("HRAM  @%x (%d)", location - 0xff80, s->mem_HRAM[location - 0xff80]);
+            MMU_DEBUG_R("HRAM  @%x (%x)", location - 0xff80, s->mem_HRAM[location - 0xff80]);
             return s->mem_HRAM[location - 0xff80];
         }
         if (location == 0xffff) { /* FFFF */
