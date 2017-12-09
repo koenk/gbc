@@ -3,29 +3,39 @@
 #include "pause.h"
 #include "mmu.h"
 
+#define MMU_DEBUG_W(fmt, ...) \
+    do { \
+        printf(" [MMU] [W] " fmt "\n", ##__VA_ARGS__); \
+    } while(0)
+
+#define MMU_DEBUG_R(fmt, ...) \
+    do { \
+        printf(" [MMU] [R] " fmt "\n", ##__VA_ARGS__); \
+    } while(0)
+
 void mmu_write(struct gb_state *s, u16 location, u8 value) {
     // MBC3
 
-    printf("Mem write (%x) %x: ", location, value);
+    MMU_DEBUG_W("Mem write (%x) %x: ", location, value);
     switch (location & 0xf000) {
     case 0x0000: // 0000 - 1FFF
     case 0x1000:
-        printf("RAM+Timer enable\n");
+        MMU_DEBUG_W("RAM+Timer enable");
         // Dummy, we always have those enabled.
         break;
     case 0x2000: // 2000 - 3FFF
     case 0x3000:
-        printf("ROM bank number\n");
+        MMU_DEBUG_W("ROM bank number");
         s->mem_bank_rom = value;
         break;
     case 0x4000: // 4000 - 5FFF
     case 0x5000:
-        printf("RAM bank number -OR- RTC register select\n");
+        MMU_DEBUG_W("RAM bank number -OR- RTC register select");
         s->mem_ram_rtc_select = value;
         break;
     case 0x6000: // 6000 - 7FFF
     case 0x7000:
-        printf("Latch clock data\n");
+        MMU_DEBUG_W("Latch clock data");
         if (s->mem_latch_rtc == 0x01 && value == 0x01) {
             // TODO... actually latch something?
             s->mem_latch_rtc = s->mem_latch_rtc;
@@ -34,12 +44,12 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
         break;
     case 0x8000: // 8000 - 9FFF
     case 0x9000:
-        printf("VRAM\n");
+        MMU_DEBUG_W("VRAM");
         s->mem_VRAM[s->mem_bank_vram][location - 0x8000] = value;
         break;
     case 0xa000: // A000 - BFFF
     case 0xb000:
-        printf("RAM (sw)/RTC\n");
+        MMU_DEBUG_W("RAM (sw)/RTC");
         if (s->mem_ram_rtc_select < 0x04)
             s->mem_RAM[s->mem_ram_rtc_select][location - 0xa000] = value;
         else if (s->mem_ram_rtc_select >= 0x08 && s->mem_ram_rtc_select <= 0x0c)
@@ -48,227 +58,227 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
             pause();
         break;
     case 0xc000: // C000 - CFFF
-        printf("WRAM B0  @%x\n", (location - 0xc000));
+        MMU_DEBUG_W("WRAM B0  @%x", (location - 0xc000));
         s->mem_WRAM[0][location - 0xc000] = value;
         break;
     case 0xd000: // D000 - DFFF
-        printf("WRAM B1-7 (switchable) @%x, bank %d\n", location - 0xd000,
+        MMU_DEBUG_W("WRAM B1-7 (switchable) @%x, bank %d", location - 0xd000,
                 s->mem_bank_wram);
         s->mem_WRAM[s->mem_bank_wram][location - 0xd000] = value;
         break;
     case 0xe000: // E000 - FDFF
-        printf("ECHO (0xc000 - 0xfdff) B0\n");
+        MMU_DEBUG_W("ECHO (0xc000 - 0xfdff) B0");
         pause();
         break;
     case 0xf000:
         if (location < 0xfe00) {
-            printf("ECHO (0xc000 - 0xfdff) B0\n");
+            MMU_DEBUG_W("ECHO (0xc000 - 0xfdff) B0");
             break;
         }
         if (location < 0xfea0) { // FE00 - FE9F
-            printf("Sprite attribute table\n");
+            MMU_DEBUG_W("Sprite attribute table");
             break;
         }
         if (location < 0xff00) { // FEA0 - FEFF
-            printf("NOT USABLE\n");
+            MMU_DEBUG_W("NOT USABLE");
             break;
         }
         if (location < 0xff80) { // FF00 - FF7F
-            printf("I/O ports ");
+            MMU_DEBUG_W("I/O ports ");
 
             switch(location) {
             case 0xff00:
-                printf("Joypad\n");
+                MMU_DEBUG_W("Joypad");
                 s->io_buttons = value;
                 break;
             case 0xff01:
-                printf("Serial link data\n");
+                MMU_DEBUG_W("Serial link data");
                 s->io_serial_data = value;
                 break;
             case 0xff02:
-                printf("Serial link control\n");
+                MMU_DEBUG_W("Serial link control");
                 s->io_serial_control = value;
                 break;
             case 0xff04:
-                printf("Timer Divider\n");
+                MMU_DEBUG_W("Timer Divider");
                 s->io_timer_DIV = 0x00;
                 break;
             case 0xff05:
-                printf("Timer Timer\n");
+                MMU_DEBUG_W("Timer Timer");
                 s->io_timer_TIMA = value;
                 break;
             case 0xff06:
-                printf("Timer Modulo\n");
+                MMU_DEBUG_W("Timer Modulo");
                 s->io_timer_TMA = value;
                 break;
             case 0xff07:
-                printf("Timer Control\n");
+                MMU_DEBUG_W("Timer Control");
                 s->io_timer_TAC = value;
                 break;
             case 0xff0f:
-                printf("Int Req\n");
+                MMU_DEBUG_W("Int Req");
                 s->interrupts_request = value;
                 break;
             case 0xff10:
-                printf("Sound channel 1 sweep\n");
+                MMU_DEBUG_W("Sound channel 1 sweep");
                 s->io_sound_channel1_sweep = value;
                 break;
             case 0xff11:
-                printf("Sound channel 1 length/pattern\n");
+                MMU_DEBUG_W("Sound channel 1 length/pattern");
                 s->io_sound_channel1_length_pattern = value;
                 break;
             case 0xff12:
-                printf("Sound channel 1 envelope\n");
+                MMU_DEBUG_W("Sound channel 1 envelope");
                 s->io_sound_channel1_envelope = value;
                 break;
             case 0xff13:
-                printf("Sound channel 1 freq lo\n");
+                MMU_DEBUG_W("Sound channel 1 freq lo");
                 s->io_sound_channel1_freq_lo = value;
                 break;
             case 0xff14:
-                printf("Sound channel 1 freq hi\n");
+                MMU_DEBUG_W("Sound channel 1 freq hi");
                 s->io_sound_channel1_freq_hi = value;
                 break;
             case 0xff16:
-                printf("Sound channel 2 length/pattern\n");
+                MMU_DEBUG_W("Sound channel 2 length/pattern");
                 s->io_sound_channel2_length_pattern = value;
                 break;
             case 0xff17:
-                printf("Sound channel 2 envelope\n");
+                MMU_DEBUG_W("Sound channel 2 envelope");
                 s->io_sound_channel2_envelope = value;
                 break;
             case 0xff18:
-                printf("Sound channel 2 freq lo\n");
+                MMU_DEBUG_W("Sound channel 2 freq lo");
                 s->io_sound_channel2_freq_lo = value;
                 break;
             case 0xff19:
-                printf("Sound channel 2 freq hi\n");
+                MMU_DEBUG_W("Sound channel 2 freq hi");
                 s->io_sound_channel2_freq_hi = value;
                 break;
             case 0xff1a:
-                printf("Sound channel 3 enabled\n");
+                MMU_DEBUG_W("Sound channel 3 enabled");
                 s->io_sound_channel3_enabled = value;
                 break;
             case 0xff1b:
-                printf("Sound channel 3 length\n");
+                MMU_DEBUG_W("Sound channel 3 length");
                 s->io_sound_channel3_length = value;
                 break;
             case 0xff1c:
-                printf("Sound channel 3 level\n");
+                MMU_DEBUG_W("Sound channel 3 level");
                 s->io_sound_channel3_level = value;
                 break;
             case 0xff1d:
-                printf("Sound channel 3 freq lo\n");
+                MMU_DEBUG_W("Sound channel 3 freq lo");
                 s->io_sound_channel3_freq_lo = value;
                 break;
             case 0xff1e:
-                printf("Sound channel 3 freq hi\n");
+                MMU_DEBUG_W("Sound channel 3 freq hi");
                 s->io_sound_channel3_freq_hi = value;
                 break;
             case 0xff20:
-                printf("Sound channel 4 length\n");
+                MMU_DEBUG_W("Sound channel 4 length");
                 s->io_sound_channel4_length = value;
                 break;
             case 0xff21:
-                printf("Sound channel 4 envelope\n");
+                MMU_DEBUG_W("Sound channel 4 envelope");
                 s->io_sound_channel4_envelope = value;
                 break;
             case 0xff22:
-                printf("Sound channel 4 polynomial counter\n");
+                MMU_DEBUG_W("Sound channel 4 polynomial counter");
                 s->io_sound_channel4_poly = value;
                 break;
             case 0xff23:
-                printf("Sound channel 4 Counter/consecutive; Inital\n");
+                MMU_DEBUG_W("Sound channel 4 Counter/consecutive; Inital");
                 s->io_sound_channel4_consec_initial = value;
                 break;
             case 0xff24:
-                printf("Sound channel control\n");
+                MMU_DEBUG_W("Sound channel control");
                 s->io_sound_terminal_control = value;
                 break;
             case 0xff25:
-                printf("Sound output terminal\n");
+                MMU_DEBUG_W("Sound output terminal");
                 s->io_sound_out_terminal = value;
                 break;
             case 0xff26:
-                printf("Sound enabled flags\n");
+                MMU_DEBUG_W("Sound enabled flags");
                 s->io_sound_enabled = value;
                 break;
             case 0xff40:
-                printf("LCD Control\n");
+                MMU_DEBUG_W("LCD Control");
                 s->io_lcd_LCDC = value;
                 break;
             case 0xff41:
-                printf("LCD Stat\n");
+                MMU_DEBUG_W("LCD Stat");
                 s->io_lcd_STAT = value;
                 break;
             case 0xff42:
-                printf("Scroll Y\n");
+                MMU_DEBUG_W("Scroll Y");
                 s->io_lcd_SCY = value;
                 break;
             case 0xff43:
-                printf("Scroll X\n");
+                MMU_DEBUG_W("Scroll X");
                 s->io_lcd_SCX = value;
                 break;
             case 0xff44:
-                printf("LCD LY\n");
+                MMU_DEBUG_W("LCD LY");
                 s->io_lcd_LY = 0x0;
                 s->io_lcd_STAT = (s->io_lcd_STAT & 0xfb) | (s->io_lcd_LY == s->io_lcd_LYC);
                 break;
             case 0xff45:
-                printf("LCD LYC\n");
+                MMU_DEBUG_W("LCD LYC");
                 s->io_lcd_LYC = value;
                 s->io_lcd_STAT = (s->io_lcd_STAT & 0xfb) | (s->io_lcd_LY == s->io_lcd_LYC);
                 break;
             case 0xff47:
-                printf("Background palette\n");
+                MMU_DEBUG_W("Background palette");
                 s->io_lcd_BGP = value;
                 break;
             case 0xff48:
-                printf("Object palette 0\n");
+                MMU_DEBUG_W("Object palette 0");
                 s->io_lcd_OBP0 = value;
                 break;
             case 0xff49:
-                printf("Object palette 1\n");
+                MMU_DEBUG_W("Object palette 1");
                 s->io_lcd_OBP1 = value;
                 break;
             case 0xff4a:
-                printf("Window Y\n");
+                MMU_DEBUG_W("Window Y");
                 s->io_lcd_WY = value;
                 break;
             case 0xff4b:
-                printf("window X\n");
+                MMU_DEBUG_W("window X");
                 s->io_lcd_WX = value;
                 break;
             case 0xff4f:
-                printf("VRAM Bank\n");
+                MMU_DEBUG_W("VRAM Bank");
                 s->mem_bank_vram = value & 1;
                 break;
             case 0xff56:
-                printf("Infrared\n");
+                MMU_DEBUG_W("Infrared");
                 s->io_infrared = value;
                 break;
             case 0xff68:
-                printf("Background Palette Index\n");
+                MMU_DEBUG_W("Background Palette Index");
                 s->io_lcd_BGPI = value;
                 break;
             case 0xff69:
-                printf("Background Palette Data\n");
+                MMU_DEBUG_W("Background Palette Data");
                 s->io_lcd_BGPD = value;
                 if (s->io_lcd_BGPI & (1 << 7))
                     s->io_lcd_BGPI = (((s->io_lcd_BGPI & 0x3f) + 1) & 0x3f) | (1 << 7);
                 break;
             case 0xff6a:
-                printf("Sprite Palette Index\n");
+                MMU_DEBUG_W("Sprite Palette Index");
                 s->io_lcd_OBPI = value;
                 break;
             case 0xff6b:
-                printf("Sprite Palette Data\n");
+                MMU_DEBUG_W("Sprite Palette Data");
                 s->io_lcd_OBPD = value;
                 if (s->io_lcd_OBPI & (1 << 7))
                     s->io_lcd_OBPI = (((s->io_lcd_OBPI & 0x3f) + 1) & 0x3f) | (1 << 7);
                 break;
             case 0xff70:
-                printf("WRAM Bank\n");
+                MMU_DEBUG_W("WRAM Bank");
                 if (value == 0)
                     s->mem_bank_wram = 1;
                 else if (value < 8)
@@ -277,7 +287,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                     pause();
                 break;
             default:
-                printf("UNKNOWN\n");
+                MMU_DEBUG_W("UNKNOWN");
                 pause();
             }
 
@@ -285,20 +295,20 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
         }
 
         if (location < 0xffff) { // FF80 - FFFE
-            printf("HRAM  @%x\n", location - 0xff80);
+            MMU_DEBUG_W("HRAM  @%x", location - 0xff80);
             if (location == 0xffa0) {
-                printf("HRAM FFA0: %x\n", value);
+                MMU_DEBUG_W("HRAM FFA0: %x", value);
             }
             s->mem_HRAM[location - 0xff80] = value;
             break;
         }
         if (location == 0xffff) { // FFFF
-            printf("Interrupt enable\n");
+            MMU_DEBUG_W("Interrupt enable");
             s->interrupts_enable = value;
             break;
         }
     default:
-        printf("INVALID LOCATION\n");
+        MMU_DEBUG_W("INVALID LOCATION");
         pause();
         break;
     }
@@ -307,10 +317,10 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
 u8 mmu_read(struct gb_state *s, u16 location) {
     // MBC3
 
-    //printf("Mem read (%x): ", location);
+    //MMU_DEBUG_R("Mem read (%x): ", location);
     if (s->in_bios && location < 0x100)
     {
-        //printf("BIOS: %04x: %02x\n", location, s->bios[location]);
+        //MMU_DEBUG_R("BIOS: %04x: %02x", location, s->bios[location]);
         return s->bios[location];
     }
 
@@ -319,7 +329,7 @@ u8 mmu_read(struct gb_state *s, u16 location) {
     case 0x1000:
     case 0x2000:
     case 0x3000:
-        //printf("CA ROM fixed @ %4x\n", location);
+        //MMU_DEBUG_R("CA ROM fixed @ %4x", location);
         return s->rom[location];
     case 0x4000: // 4000 - 7FFF
     case 0x5000:
@@ -327,17 +337,17 @@ u8 mmu_read(struct gb_state *s, u16 location) {
     case 0x7000:
         if (location > 0x7e50)
             pause();
-        printf("CA ROM switchable, bank %d, %4x\n", s->mem_bank_rom, s->mem_bank_rom * 0x4000 + (location - 0x4000));
+        MMU_DEBUG_R("CA ROM switchable, bank %d, %4x", s->mem_bank_rom, s->mem_bank_rom * 0x4000 + (location - 0x4000));
         return s->rom[s->mem_bank_rom * 0x4000 + (location - 0x4000)];
         break;
     case 0x8000: // 8000 - 9FFF
     case 0x9000:
-        printf("VRAM\n");
+        MMU_DEBUG_R("VRAM");
         return s->mem_VRAM[s->mem_bank_vram][location - 0x8000];
         break;
     case 0xa000: // A000 - BFFF
     case 0xb000:
-        printf("RAM (sw)/RTC\n");
+        MMU_DEBUG_R("RAM (sw)/RTC");
         if (s->mem_ram_rtc_select < 0x04)
             return s->mem_RAM[s->mem_ram_rtc_select][location - 0xa000];
         else if (s->mem_ram_rtc_select >= 0x08 && s->mem_ram_rtc_select <= 0x0c)
@@ -346,136 +356,136 @@ u8 mmu_read(struct gb_state *s, u16 location) {
         pause();
         return 0;
     case 0xc000: // C000 - CFFF
-        printf("WRAM B0  @%x\n", (location - 0xc000));
+        MMU_DEBUG_R("WRAM B0  @%x", (location - 0xc000));
         return s->mem_WRAM[0][location - 0xc000];
     case 0xd000: // D000 - DFFF
-        printf("WRAM B1-7 (switchable) @%x, bank %d\n", location - 0xd000, s->mem_bank_wram);
+        MMU_DEBUG_R("WRAM B1-7 (switchable) @%x, bank %d", location - 0xd000, s->mem_bank_wram);
         return s->mem_WRAM[s->mem_bank_wram][location - 0xd000];
         break;
     case 0xe000: // E000 - FDFF
-        printf("ECHO (0xc000 - 0xddff) B0\n");
+        MMU_DEBUG_R("ECHO (0xc000 - 0xddff) B0");
         pause();
         break;
     case 0xf000:
         if (location < 0xfe00) {
-            printf("ECHO (0xc000 - 0xddff) B0\n");
+            MMU_DEBUG_R("ECHO (0xc000 - 0xddff) B0");
             break;
         }
 
         if (location < 0xfea0) { // FE00 - FE9F
-            printf("Sprite attribute table\n");
+            MMU_DEBUG_R("Sprite attribute table");
             break;
         }
 
         if (location < 0xff00) { // FEA0 - FEFF
-            printf("NOT USABLE\n");
+            MMU_DEBUG_R("NOT USABLE");
             break;
         }
 
         if (location < 0xff80) { // FF00 - FF7F
-            //printf("I/O ports ");
+            //MMU_DEBUG_R("I/O ports ");
             switch (location) {
             case 0xff00:
-                printf("Joypad\n");
+                MMU_DEBUG_R("Joypad");
                 if ((s->io_buttons & (1 << 4)) == 0)
                     return (s->io_buttons & 0xf0) | (s->io_buttons_dirs & 0x0f);
                 else if ((s->io_buttons & (1 << 5)) == 0)
                     return (s->io_buttons & 0xf0) | (s->io_buttons_buttons & 0x0f);
                 return (s->io_buttons & 0xf0) | (s->io_buttons_buttons & 0x0f);
             case 0xff01:
-                printf("Serial link data\n");
+                MMU_DEBUG_R("Serial link data");
                 return s->io_serial_data;
             case 0xff02:
-                printf("Serial link control\n");
+                MMU_DEBUG_R("Serial link control");
                 return s->io_serial_control;
             case 0xff04:
-                printf("Timer Divider\n");
+                MMU_DEBUG_R("Timer Divider");
                 return s->io_timer_DIV;
             case 0xff05:
-                printf("Timer Timer\n");
+                MMU_DEBUG_R("Timer Timer");
                 return s->io_timer_TIMA;
             case 0xff06:
-                printf("Timer Modulo\n");
+                MMU_DEBUG_R("Timer Modulo");
                 return s->io_timer_TMA;
             case 0xff07:
-                printf("Timer Control\n");
+                MMU_DEBUG_R("Timer Control");
                 return s->io_timer_TAC;
             case 0xff0f:
-                printf("Int Reqs\n");
+                MMU_DEBUG_R("Int Reqs");
                 return s->interrupts_request;
             case 0xff10:
-                printf("Sound channel 1 sweep\n");
+                MMU_DEBUG_R("Sound channel 1 sweep");
                 return s->io_sound_channel1_sweep;
             case 0xff12:
-                printf("Sound channel 1 envelope\n");
+                MMU_DEBUG_R("Sound channel 1 envelope");
                 return s->io_sound_channel1_envelope;
             case 0xff1a:
-                printf("Sound channel 3 enabled\n");
+                MMU_DEBUG_R("Sound channel 3 enabled");
                 return s->io_sound_channel3_enabled;
             case 0xff1c:
-                printf("Sound channel 3 level\n");
+                MMU_DEBUG_R("Sound channel 3 level");
                 return s->io_sound_channel3_level;
             case 0xff25:
-                printf("Sound output terminal\n");
+                MMU_DEBUG_R("Sound output terminal");
                 return s->io_sound_out_terminal;
             case 0xff26:
-                printf("Sound enabled flags\n");
+                MMU_DEBUG_R("Sound enabled flags");
                 return s->io_sound_enabled;
             case 0xff40:
-                printf("LCD Control (%04x: %02x)\n", location, s->io_lcd_LCDC);
+                MMU_DEBUG_R("LCD Control (%04x: %02x)", location, s->io_lcd_LCDC);
                 return s->io_lcd_LCDC;
             case 0xff42:
-                printf("Scroll Y\n");
+                MMU_DEBUG_R("Scroll Y");
                 return s->io_lcd_SCY;
             case 0xff43:
-                printf("Scroll X\n");
+                MMU_DEBUG_R("Scroll X");
                 return s->io_lcd_SCX;
             case 0xff44:
-                //printf("LCD LY\n");
+                //MMU_DEBUG_R("LCD LY");
                 return s->io_lcd_LY;
             case 0xff45:
-                printf("LCD LYC\n");
+                MMU_DEBUG_R("LCD LYC");
                 return s->io_lcd_LYC;
             case 0xff47:
-                printf("Background palette\n");
+                MMU_DEBUG_R("Background palette");
                 return s->io_lcd_BGP;
             case 0xff48:
-                printf("Object palette 0\n");
+                MMU_DEBUG_R("Object palette 0");
                 return s->io_lcd_OBP0;
             case 0xff49:
-                printf("Object palette 1\n");
+                MMU_DEBUG_R("Object palette 1");
                 return s->io_lcd_OBP1;
             case 0xff4a:
-                printf("Window Y\n");
+                MMU_DEBUG_R("Window Y");
                 return s->io_lcd_WY;
             case 0xff4b:
-                printf("Window X\n");
+                MMU_DEBUG_R("Window X");
                 return s->io_lcd_WX;
             case 0xff4f:
-                printf("VRAM Bank\n");
+                MMU_DEBUG_R("VRAM Bank");
                 return s->mem_bank_vram & 1;
             case 0xff56:
-                printf("Infrared\n");
+                MMU_DEBUG_R("Infrared");
                 return s->io_infrared;
             case 0xff70:
-                printf("WRAM bank\n");
+                MMU_DEBUG_R("WRAM bank");
                 return s->mem_bank_wram;
             }
 
-            printf("UNKNOWN\n");
+            MMU_DEBUG_R("UNKNOWN");
             pause();
         }
         if (location < 0xffff) { // FF80 - FFFE
-            printf("HRAM  @%x (%d)\n", location - 0xff80, s->mem_HRAM[location - 0xff80]);
+            MMU_DEBUG_R("HRAM  @%x (%d)", location - 0xff80, s->mem_HRAM[location - 0xff80]);
             return s->mem_HRAM[location - 0xff80];
         }
         if (location == 0xffff) { // FFFF
-            printf("Interrupt enable\n");
+            MMU_DEBUG_R("Interrupt enable");
             return s->interrupts_enable;
         }
 
     default:
-        printf("INVALID LOCATION\n");
+        MMU_DEBUG_R("INVALID LOCATION");
         pause();
     }
     return 0;
