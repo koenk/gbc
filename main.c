@@ -289,10 +289,8 @@ int main(int argc, char *argv[]) {
     gettimeofday(&starttime, NULL);
 
     while (!ret && gb_state->cycles < cycles_to_emulate) {
-        //if (gb_state->pc > 0x6f && (gb_state->pc < 0x1f80 || gb_state->pc > 0x1f86) && (gb_state->pc < 0x36e2 || gb_state->pc > 0x36e7)) {
-            //emu.print_regs();
-            //disassemble(gb_state);
-        //}
+        disassemble(gb_state);
+
         ret = cpu_do_instruction(gb_state);
         instr++;
 
