@@ -445,7 +445,7 @@ int cpu_do_instruction(struct gb_state *s) {
     } else if (M(op, 0x3f, 0xff)) { /* CCF */
 #endif
     } else if (M(op, 0x76, 0xff)) { /* HALT */
-        return 1;
+        s->halt_for_interrupts = 1;
     } else if (M(op, 0x40, 0xc0)) { /* LD reg8, reg8 */
         u8* src = REG8(0);
         u8* dst = REG8(3);
