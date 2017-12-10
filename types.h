@@ -98,6 +98,8 @@ struct gb_state
     u8 io_lcd_LY;   // LCD Y line
     u8 io_lcd_LYC;  // LCD Y line compare
 
+    u8 lcd_needs_rerender; // We set this at the end of every vblank
+
     u8 io_timer_DIV;
     u8 io_timer_TIMA;
     u8 io_timer_TMA;

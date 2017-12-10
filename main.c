@@ -14,6 +14,7 @@
 #include "cpu.h"
 #include "mmu.h"
 #include "disassembler.h"
+#include "gui.h"
 
 void print_rom_header_info(u8* rom) {
     printf("Title: %s\n", &rom[0x134]);
@@ -269,6 +270,11 @@ int main(int argc, char *argv[]) {
 
     disassemble_bootblock(gb_state);
 
+    if (gui_init()) {
+        printf("Couldn't initialize LCD, exiting...\n");
+        return 1;
+    }
+
     printf("==========================\n");
     printf("=== Starting execution ===\n");
     printf("==========================\n\n");
@@ -285,10 +291,18 @@ int main(int argc, char *argv[]) {
     while (!ret && gb_state->cycles < cycles_to_emulate) {
         //if (gb_state->pc > 0x6f && (gb_state->pc < 0x1f80 || gb_state->pc > 0x1f86) && (gb_state->pc < 0x36e2 || gb_state->pc > 0x36e7)) {
             //emu.print_regs();
-            disassemble(gb_state);
+            //disassemble(gb_state);
         //}
         ret = cpu_do_instruction(gb_state);
         instr++;
+
+        if (gb_state->lcd_needs_rerender) {
+            gui_render_frame(gb_state);
+            gb_state->lcd_needs_rerender = 0;
+        }
+
+        if (gui_handleinputs(gb_state))
+            break;
     }
 
     gettimeofday(&endtime, NULL);

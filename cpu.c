@@ -227,6 +227,7 @@ static void cpu_handle_LCD(struct gb_state *s, int op_cycles) {
                 s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 1;
                 s->lcd_mode_clks_left = GB_LCD_MODE_1_CLKS;
                 s->interrupts_request |= 1 << 0;
+                s->lcd_needs_rerender = 1;
             } else { /* Back into OAM (2) */
                 s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 2;
                 s->lcd_mode_clks_left = GB_LCD_MODE_2_CLKS;
