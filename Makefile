@@ -14,6 +14,6 @@ $(PROGNAME): $(OBJFILES)
 	$(CC) $(CFLAGS) $(LFLAGS) -o $@ $^
 
 clean:
-	$(RM) $(PROGNAME) *.o
+	$(RM) $(PROGNAME) *.o *.d
 
 -include *.d
