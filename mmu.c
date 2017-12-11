@@ -3,6 +3,7 @@
 #include "pause.h"
 #include "mmu.h"
 
+#if 1
 #define MMU_DEBUG_W(fmt, ...) \
     do { \
         printf(" [MMU] [W] " fmt " @%x: %x\n", ##__VA_ARGS__, location, value); \
@@ -12,6 +13,10 @@
     do { \
         printf(" [MMU] [R] " fmt "\n", ##__VA_ARGS__); \
     } while(0)
+#else
+#define MMU_DEBUG_W(...)
+#define MMU_DEBUG_R(...)
+#endif
 
 void mmu_write(struct gb_state *s, u16 location, u8 value) {
     //MMU_DEBUG_W("Mem write (%x) %x: ", location, value);
