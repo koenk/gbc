@@ -212,7 +212,7 @@ struct gb_state *new_gb_state(u8 *bios, u8 *rom, size_t rom_inpsize,
            (extram == 1 && extram_banks > 0));
 
     /* Currently unsupported features. */
-    assert(mbc == 0);
+    assert(mbc == 0 || mbc == 1);
     assert(extram == 0);
     assert(battery == 0);
     assert(rtc == 0);
