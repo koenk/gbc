@@ -307,7 +307,12 @@ static int do_cb_instruction(struct gb_state *s) {
     else if (M(op, 0x18, 0xf8)) { /* RR reg8 */
     else if (M(op, 0x20, 0xf8)) { /* SLA reg8 */
     else if (M(op, 0x28, 0xf8)) { /* SRA reg8 */
-    else if (M(op, 0x30, 0xf8)) { /* SWAP reg8 */
+#endif
+    } else if (M(op, 0x30, 0xf8)) { /* SWAP reg8 */
+        u8 *reg = REG8(0);
+        *reg = ((*reg << 4) & 0xf0) | ((*reg >> 4) & 0xf);
+        F = *reg == 0 ? FLAG_Z : 0;
+#if 0
     else if (M(op, 0x38, 0xf8)) { /* SRL reg8 */
 #endif
     } else if (M(op, 0x40, 0xc0)) { /* BIT bit, reg8 */
@@ -321,9 +326,10 @@ static int do_cb_instruction(struct gb_state *s) {
         u8 bit = (op >> 3) & 7;
         u8 *reg = REG8(0);
         *reg = *reg & ~(1<<bit);
-#if 0
-    else if (M(op, 0xc0, 0xc0)) { /* RRC bit, reg8 */
-#endif
+    } else if (M(op, 0xc0, 0xc0)) { /* SET bit, reg8 */
+        u8 bit = (op >> 3) & 7;
+        u8 *reg = REG8(0);
+        *reg |= (1 << bit);
     } else {
         s->pc -= 2;
         return 1;
@@ -373,13 +379,19 @@ int cpu_do_instruction(struct gb_state *s) {
     } else if (M(op, 0x02, 0xff)) { /* LD (BC), A */
 #endif
     } else if (M(op, 0x03, 0xcf)) { /* INC reg16 */
-        DE++;
+        u16 *reg = REG16(4);
+        *reg += 1;
     } else if (M(op, 0x04, 0xc7)) { /* INC reg8 */
         u8* reg = REG8(3);
-        (*reg)++;
+        u8 val = reg ? *reg : mem(HL);
+        val++;
+        if (reg)
+            *reg = val;
+        else
+            mmu_write(s, HL, val);
         NF = 0;
-        ZF = *reg == 0;
-        HF = (*reg & 0x10) == 0x10;
+        ZF = val == 0;
+        HF = (val & 0x10) == 0x10;
     } else if (M(op, 0x05, 0xc7)) { /* DEC reg8 */
         u8* reg = REG8(3);
         (*reg)--;
@@ -403,7 +415,11 @@ int cpu_do_instruction(struct gb_state *s) {
     } else if (M(op, 0x08, 0xff)) { /* LD (imm16), SP */
     } else if (M(op, 0x09, 0xcf)) { /* ADD HL, reg16 */
     } else if (M(op, 0x0a, 0xff)) { /* LD A, (BC) */
+#endif
     } else if (M(op, 0x0b, 0xcf)) { /* DEC reg16 */
+        u16 *reg = REG16(4);
+        *reg -= 1;
+#if 0
     } else if (M(op, 0x0f, 0xff)) { /* RRCA */
     } else if (M(op, 0x10, 0xff)) { /* STOP */
 #endif
@@ -434,9 +450,10 @@ int cpu_do_instruction(struct gb_state *s) {
     } else if (M(op, 0x2a, 0xff)) { /* LDI A, (HL) */
         A = mmu_read(s, HL);
         HL++;
-#if 0
     } else if (M(op, 0x2f, 0xff)) { /* CPL */
-#endif
+        A = ~A;
+        NF = 1;
+        HF = 1;
     } else if (M(op, 0x32, 0xff)) { /* LDD (HL), A */
         mmu_write(s, HL, A);
         HL--;
@@ -468,17 +485,30 @@ int cpu_do_instruction(struct gb_state *s) {
     } else if (M(op, 0x88, 0xf8)) { /* ADC A, reg8 */
     } else if (M(op, 0x90, 0xf8)) { /* SUB reg8 */
     } else if (M(op, 0x98, 0xf8)) { /* SBC A, reg8 */
-    } else if (M(op, 0xa0, 0xf8)) { /* AND reg8 */
 #endif
+    } else if (M(op, 0xa0, 0xf8)) { /* AND reg8 */
+        u8 *reg = REG8(0);
+        A = A & *reg;
+        ZF = A == 0;
+        NF = 0;
+        HF = 1;
+        CF = 0;
     } else if (M(op, 0xa8, 0xf8)) { /* XOR reg8 */
         u8* src = REG8(0);
         u8 srcval = src ? *src : mem(HL);
         A ^= srcval;
         F = A ? 0 : FLAG_Z;
-#if 0
     } else if (M(op, 0xb0, 0xf8)) { /* OR reg8 */
+        u8* src = REG8(0);
+        u8 srcval = src ? *src : mem(HL);
+        A |= srcval;
+        F = A ? 0 : FLAG_Z;
     } else if (M(op, 0xb8, 0xf8)) { /* CP reg8 */
-#endif
+        u8 *reg = REG8(0);
+        ZF = A == *reg;
+        NF = 1;
+        HF = (A & 0xf) < (*reg & 0xf);
+        CF = A < *reg;
     } else if (M(op, 0xc0, 0xe7)) { /* RET cond */
         /* TODO cyclecount depends on taken or not */
 
@@ -500,8 +530,15 @@ int cpu_do_instruction(struct gb_state *s) {
     } else if (M(op, 0xc5, 0xcf)) { /* PUSH reg16 */
         u16 *src = REG16S(4);
         mmu_push16(s,*src);
-#if 0
     } else if (M(op, 0xc6, 0xff)) { /* ADD A, imm8 */
+        u16 res = A + IMM8;
+        ZF = A == 0;
+        NF = 0;
+        HF = (A ^ IMM8 ^ res) & 0x10 ? 1 : 0;
+        CF = res & 0x100 ? 1 : 0;
+        A = (u8)res;
+        s->pc++;
+#if 0
     } else if (M(op, 0xc7, 0xc7)) { /* RST imm8 */
 #endif
     } else if (M(op, 0xc9, 0xff)) { /* RET */
@@ -513,7 +550,11 @@ int cpu_do_instruction(struct gb_state *s) {
 #if 0
     } else if (M(op, 0xce, 0xff)) { /* ADC imm8 */
     } else if (M(op, 0xd6, 0xff)) { /* SUB imm8 */
+#endif
     } else if (M(op, 0xd9, 0xff)) { /* RETI */
+        s->pc = mmu_pop16(s);
+        s->interrupts_master_enabled = 1;
+#if 0
     } else if (M(op, 0xde, 0xff)) { /* SBC imm8 */
 #endif
     } else if (M(op, 0xe0, 0xff)) { /* LD (0xff00 + imm8), A */
@@ -521,8 +562,14 @@ int cpu_do_instruction(struct gb_state *s) {
         s->pc++;
     } else if (M(op, 0xe2, 0xff)) { /* LD (0xff00 + C), A */
         mmu_write(s, 0xff00 + C, A);
-#if 0
     } else if (M(op, 0xe6, 0xff)) { /* AND imm8 */
+        A = A & IMM8;
+        s->pc++;
+        ZF = A == 0;
+        NF = 0;
+        HF = 1;
+        CF = 0;
+#if 0
     } else if (M(op, 0xe8, 0xff)) { /* ADD SP, imm8s */
     } else if (M(op, 0xe9, 0xff)) { /* LD PC, HL */
 #endif
@@ -531,9 +578,10 @@ int cpu_do_instruction(struct gb_state *s) {
         s->pc += 2;
     } else if (M(op, 0xcb, 0xff)) { /* CB-prefixed extended instructions */
         return do_cb_instruction(s);
-#if 0
     } else if (M(op, 0xee, 0xff)) { /* XOR imm8 */
-#endif
+        A ^= IMM8;
+        s->pc++;
+        F = A ? 0 : FLAG_Z;
     } else if (M(op, 0xf0, 0xff)) { /* LD A, (0xff00 + imm8) */
         A = mmu_read(s, 0xff00 + IMM8);
         s->pc++;
@@ -550,9 +598,8 @@ int cpu_do_instruction(struct gb_state *s) {
     } else if (M(op, 0xfa, 0xff)) { /* LD A, (imm16) */
         A = mmu_read(s, IMM16);
         s->pc += 2;
-#if 0
     } else if (M(op, 0xfb, 0xff)) { /* EI */
-#endif
+        s->interrupts_master_enabled = 1;
     } else if (M(op, 0xfe, 0xff)) { /* CP imm8 */
         u8 n = IMM8;
         ZF = A == n;
