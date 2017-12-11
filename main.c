@@ -289,7 +289,7 @@ int main(int argc, char *argv[]) {
     gettimeofday(&starttime, NULL);
 
     while (!ret && gb_state->cycles < cycles_to_emulate) {
-        disassemble(gb_state);
+        //disassemble(gb_state);
 
         ret = cpu_do_instruction(gb_state);
         instr++;

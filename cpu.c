@@ -361,7 +361,6 @@ int cpu_do_instruction(struct gb_state *s) {
     s->cycles += op_cycles;
 
     if (s->halt_for_interrupts) {
-        printf("halt interrupts\n");
         if (!s->interrupts_master_enabled || !s->interrupts_enable) {
             printf("Waiting for interrupts while disabled... Deadlock.\n");
             return 1;
