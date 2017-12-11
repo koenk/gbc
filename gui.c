@@ -102,7 +102,7 @@ void gui_render_frame(struct gb_state *gb_state) {
                      * (9/8*2 [+1]) and then shift both by 7 (8-9%8)
                      */
                     int i = x + y * 8;
-                    int shift = 8 - i % 8;
+                    int shift = 7 - i % 8;
                     u8 b1 = tiledata[tileidx * 16 + i/8*2];
                     u8 b2 = tiledata[tileidx * 16 + i/8*2 + 1];
                     u8 colidx = ((b1 >> shift) & 1) |
