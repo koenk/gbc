@@ -297,10 +297,11 @@ int main(int argc, char *argv[]) {
         if (gb_state->lcd_needs_rerender) {
             gui_render_frame(gb_state);
             gb_state->lcd_needs_rerender = 0;
+
+            if (gui_handleinputs(gb_state))
+                break;
         }
 
-        if (gui_handleinputs(gb_state))
-            break;
     }
 
     gettimeofday(&endtime, NULL);
