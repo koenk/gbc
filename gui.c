@@ -78,23 +78,22 @@ void gui_render_frame(struct gb_state *gb_state) {
     /* TODO for all things: palette? */
 
     /* First render background tiles. */
-    /* TODO: scroll, selecting other tile data area */
+    /* TODO: selecting other tile data area */
+    u8 scroll_x = gb_state->io_lcd_SCX;
+    u8 scroll_y = gb_state->io_lcd_SCY;
     u8 *tiledata = &gb_state->mem_VRAM[0x8000-0x8000];
     u8 *bgmap = &gb_state->mem_VRAM[0x9800-0x8000];
     for (int tiley = 0; tiley < 32; tiley++) {
-        if (tiley * 8 >= GUI_PX_HEIGHT)
-            break;
         for (int tilex = 0; tilex < 32; tilex++) {
-            if (tilex * 8 >= GUI_PX_WIDTH)
-                break;
-            int tilebasepx = tilex * 8 + tiley * 8 * GUI_PX_WIDTH;
             u8 tileidx = bgmap[tilex + tiley*32];
             for (int y = 0; y < 8; y++) {
-                if (tiley * 8 + y >= GUI_PX_HEIGHT)
-                    break;
+                int screen_y = (tiley * 8 + y - scroll_y) % 256;
+                if (screen_y < 0) screen_y += 256;
+                if (screen_y >= GUI_PX_HEIGHT) continue;
                 for (int x = 0; x < 8; x++) {
-                    if (tilex * 8 + x >= GUI_PX_WIDTH)
-                        break;
+                    int screen_x = (tilex * 8 + x - scroll_x) % 256;
+                    if (screen_x < 0) screen_x += 256;
+                    if (screen_x >= GUI_PX_WIDTH) continue;
 
                     /* We have packed 2-bit color indices here, so the bits look
                      * like: (each bit denoted by the pixel index in tile)
@@ -110,7 +109,7 @@ void gui_render_frame(struct gb_state *gb_state) {
                                (((b2 >> shift) & 1) << 1);
 
                     u32 col = palette[colidx];
-                    pixels[tilebasepx + x + y * GUI_PX_WIDTH] = col;
+                    pixels[screen_x + screen_y * GUI_PX_WIDTH] = col;
 
                 }
             }
