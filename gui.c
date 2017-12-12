@@ -83,13 +83,18 @@ void gui_render_frame(struct gb_state *gb_state) {
     u8 scroll_y = gb_state->io_lcd_SCY;
 
     u8 tilemap_low_unsiged = (gb_state->io_lcd_LCDC & (1<<4)) ? 1 : 0;
+    u8 bgmap_high = (gb_state->io_lcd_LCDC & (1<<3)) ? 1 : 0;
 
     u8 *tiledata;
     if (tilemap_low_unsiged)
         tiledata = &gb_state->mem_VRAM[0x8000-0x8000];
     else /* Spans from 8800-97FF, tileidx signed */
         tiledata = &gb_state->mem_VRAM[0x9000-0x8000];
-    u8 *bgmap = &gb_state->mem_VRAM[0x9800-0x8000];
+    u8 *bgmap;
+    if (bgmap_high)
+        bgmap = &gb_state->mem_VRAM[0x9c00-0x8000];
+    else
+        bgmap = &gb_state->mem_VRAM[0x9800-0x8000];
     for (int tiley = 0; tiley < 32; tiley++) {
         for (int tilex = 0; tilex < 32; tilex++) {
             u8 tileidxraw = bgmap[tilex + tiley*32];
