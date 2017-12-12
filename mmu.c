@@ -236,6 +236,10 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 s->io_lcd_LYC = value;
                 s->io_lcd_STAT = (s->io_lcd_STAT & 0xfb) | (s->io_lcd_LY == s->io_lcd_LYC);
                 break;
+            case 0xff46:
+                MMU_DEBUG_W("DMA source=%.4x dest=0xfe00 (OAM)", value << 8);
+                /* TODO */
+                break;
             case 0xff47:
                 MMU_DEBUG_W("Background palette");
                 s->io_lcd_BGP = value;
