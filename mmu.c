@@ -344,8 +344,9 @@ u8 mmu_read(struct gb_state *s, u16 location) {
     case 0x5000:
     case 0x6000:
     case 0x7000:
-        MMU_DEBUG_R("ROM B%d, %4x", s->mem_bank_rom, s->mem_bank_rom * 0x4000 + (location - 0x4000));
+        //MMU_DEBUG_R("ROM B%d, %4x", s->mem_bank_rom, s->mem_bank_rom * 0x4000 + (location - 0x4000));
         assert(s->mem_num_banks_rom > 0);
+        assert(s->mem_bank_rom < s->mem_num_banks_rom);
         return s->mem_ROM[s->mem_bank_rom * 0x4000 + (location - 0x4000)];
         break;
     case 0x8000: /* 8000 - 9FFF */
