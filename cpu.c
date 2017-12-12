@@ -375,7 +375,12 @@ static int do_cb_instruction(struct gb_state *s) {
     } else if (M(op, 0xc0, 0xc0)) { /* SET bit, reg8 */
         u8 bit = (op >> 3) & 7;
         u8 *reg = REG8(0);
-        *reg |= (1 << bit);
+        u8 val = reg ? *reg : mem(HL);
+        val |= (1 << bit);
+        if (reg)
+            *reg = val;
+        else
+            mmu_write(s, HL, val);
     } else {
         s->pc -= 2;
         return 1;
@@ -439,10 +444,15 @@ int cpu_do_instruction(struct gb_state *s) {
         HF = (val & 0x10) == 0x10;
     } else if (M(op, 0x05, 0xc7)) { /* DEC reg8 */
         u8* reg = REG8(3);
-        (*reg)--;
+        u8 val = reg ? *reg : mem(HL);
+        val--;
         NF = 1;
-        ZF = *reg == 0;
-        HF = (*reg & 0x0F) == 0x0F;
+        ZF = val == 0;
+        HF = (val & 0x0F) == 0x0F;
+        if (reg)
+            *reg = val;
+        else
+            mmu_write(s, HL, val);
     } else if (M(op, 0x06, 0xc7)) { /* LD reg8, imm8 */
         u8* dst = REG8(3);
         u8 src = IMM8;
@@ -466,9 +476,8 @@ int cpu_do_instruction(struct gb_state *s) {
         HF = ((HL & 0xfff) + (*src & 0xfff) & 0x1000) ? 1 : 0;
         CF = tmp > 0xffff;
         HL = tmp;
-#if 0
     } else if (M(op, 0x0a, 0xff)) { /* LD A, (BC) */
-#endif
+        A = mem(BC);
     } else if (M(op, 0x0b, 0xcf)) { /* DEC reg16 */
         u16 *reg = REG16(4);
         *reg -= 1;
