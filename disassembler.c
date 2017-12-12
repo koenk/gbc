@@ -76,7 +76,7 @@ static GBOPCODE opcodes[] = {
   { 0xff, 0xe0, "LD (0xff%n),A" },
   { 0xff, 0xe2, "LD (0xff00h+C),A" },
   { 0xff, 0xe6, "AND %B" },
-  { 0xff, 0xe8, "ADD SP,%D" },
+  { 0xff, 0xe8, "ADD SP,%d" },
   { 0xff, 0xe9, "LD PC,HL" },
   { 0xff, 0xea, "LD (%W),A" },
   { 0xff, 0xee, "XOR %B" },
@@ -84,7 +84,7 @@ static GBOPCODE opcodes[] = {
   { 0xff, 0xf2, "LD A,(0xff00h+C)" },
   { 0xff, 0xf3, "DI" },
   { 0xff, 0xf6, "OR %B" },
-  { 0xff, 0xf8, "LD HL,SP%D" },
+  { 0xff, 0xf8, "LD HL,SP + %d" },
   { 0xff, 0xf9, "LD SP,HL" },
   { 0xff, 0xfa, "LD A,(%W)" },
   { 0xff, 0xfb, "EI" },
@@ -145,7 +145,7 @@ int disassemble_pc(struct gb_state* s, u16 pc)
                 temp2 = mmu_read(s, pc++);
                 printf("0x%x", temp1 | (temp2 << 8));
                 break;
-            case 'd': // Displacement (one byte)
+            case 'd': // Signed displacement (one byte)
                 stemp = mmu_read(s, pc++);
                 printf("%d", stemp);
                 break;
