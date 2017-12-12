@@ -710,6 +710,11 @@ int cpu_do_instruction(struct gb_state *s) {
         return 1;
     }
 
+    if (s->pc >= 0x8000 && s->pc < 0xff80) {
+        printf("PC not in ROM or HRAM: %.4x\n", s->pc);
+        return 1;
+    }
+
     return 0;
 }
 
