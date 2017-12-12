@@ -293,7 +293,7 @@ static int do_cb_instruction(struct gb_state *s) {
 
 #if 0
     if (M(op, 0x00, 0xf8)) { /* RLC reg8 */
-    else if (M(op, 0x08, 0xf8)) { /* RRC reg8 */
+    } else if (M(op, 0x08, 0xf8)) { /* RRC reg8 */
 #endif
     if (M(op, 0x10, 0xf8)) { /* RL reg8 */
         u8 *reg = REG8(0);
@@ -303,29 +303,75 @@ static int do_cb_instruction(struct gb_state *s) {
         CF = (*reg) & (1 << 7);
         *reg = res;
         ZF = res == 0;
-#if 0
-    else if (M(op, 0x18, 0xf8)) { /* RR reg8 */
-    else if (M(op, 0x20, 0xf8)) { /* SLA reg8 */
-    else if (M(op, 0x28, 0xf8)) { /* SRA reg8 */
-#endif
+    } else if (M(op, 0x18, 0xf8)) { /* RR reg8 */
+        u8 *reg = REG8(0);
+        u8 res = (*reg >> 1) | (CF << 7);
+        ZF = res == 0;
+        NF = 0;
+        HF = 0;
+        CF = *reg & 0x1;
+        *reg = res;
+    } else if (M(op, 0x20, 0xf8)) { /* SLA reg8 */
+        u8 *reg = REG8(0);
+        u8 val = reg ? *reg : mem(HL);
+        CF = val & (1<<7);
+        val = val << 1;
+        ZF = val == 0;
+        NF = 0;
+        HF = 0;
+        if (reg)
+            *reg = val;
+        else
+            mmu_write(s, HL, val);
+    } else if (M(op, 0x28, 0xf8)) { /* SRA reg8 */
+        u8 *reg = REG8(0);
+        u8 val = reg ? *reg : mem(HL);
+        CF = val & 0x1;
+        val = (val >> 1) | (val & (1<<7));
+        ZF = val == 0;
+        NF = 0;
+        HF = 0;
+        if (reg)
+            *reg = val;
+        else
+            mmu_write(s, HL, val);
     } else if (M(op, 0x30, 0xf8)) { /* SWAP reg8 */
         u8 *reg = REG8(0);
         *reg = ((*reg << 4) & 0xf0) | ((*reg >> 4) & 0xf);
         F = *reg == 0 ? FLAG_Z : 0;
-#if 0
-    else if (M(op, 0x38, 0xf8)) { /* SRL reg8 */
-#endif
+    } else if (M(op, 0x38, 0xf8)) { /* SRL reg8 */
+        u8 *reg = REG8(0);
+        u8 val = reg ? *reg : mem(HL);
+        CF = val & 0x1;
+        val = val >> 1;
+        ZF = val == 0;
+        NF = 0;
+        HF = 0;
+        if (reg)
+            *reg = val;
+        else
+            mmu_write(s, HL, val);
     } else if (M(op, 0x40, 0xc0)) { /* BIT bit, reg8 */
         u8 bit = (op >> 3) & 7;
         u8 *reg = REG8(0);
-        u8 res = *reg & (1 << bit);
-        ZF = res == 0;
+        u8 val = reg ? *reg : mem(HL);
+        val = val & (1 << bit);
+        ZF = val == 0;
         NF = 0;
         HF = 1;
+        if (reg)
+            *reg = val;
+        else
+            mmu_write(s, HL, val);
     } else if (M(op, 0x80, 0xc0)) { /* RES bit, reg8 */
         u8 bit = (op >> 3) & 7;
         u8 *reg = REG8(0);
-        *reg = *reg & ~(1<<bit);
+        u8 val = reg ? *reg : mem(HL);
+        val = val & ~(1<<bit);
+        if (reg)
+            *reg = val;
+        else
+            mmu_write(s, HL, val);
     } else if (M(op, 0xc0, 0xc0)) { /* SET bit, reg8 */
         u8 bit = (op >> 3) & 7;
         u8 *reg = REG8(0);
@@ -412,7 +458,15 @@ int cpu_do_instruction(struct gb_state *s) {
 
 #if 0
     } else if (M(op, 0x08, 0xff)) { /* LD (imm16), SP */
+#endif
     } else if (M(op, 0x09, 0xcf)) { /* ADD HL, reg16 */
+        u16 *src = REG16(4);
+        u32 tmp = HL + *src;
+        NF = 0;
+        HF = ((HL & 0xfff) + (*src & 0xfff) & 0x1000) ? 1 : 0;
+        CF = tmp > 0xffff;
+        HL = tmp;
+#if 0
     } else if (M(op, 0x0a, 0xff)) { /* LD A, (BC) */
 #endif
     } else if (M(op, 0x0b, 0xcf)) { /* DEC reg16 */
@@ -456,9 +510,14 @@ int cpu_do_instruction(struct gb_state *s) {
     } else if (M(op, 0x32, 0xff)) { /* LDD (HL), A */
         mmu_write(s, HL, A);
         HL--;
-#if 0
     } else if (M(op, 0x37, 0xff)) { /* SCF */
+        NF = 0;
+        HF = 0;
+        CF = 1;
     } else if (M(op, 0x3a, 0xff)) { /* LDD A, (HL) */
+        A = mmu_read(s, HL);
+        HL--;
+#if 0
     } else if (M(op, 0x3f, 0xff)) { /* CCF */
 #endif
     } else if (M(op, 0x76, 0xff)) { /* HALT */
@@ -480,11 +539,27 @@ int cpu_do_instruction(struct gb_state *s) {
         HF = (A ^ srcval ^ res) & 0x10 ? 1 : 0;
         CF = res & 0x100 ? 1 : 0;
         A = (u8)res;
-#if 0
     } else if (M(op, 0x88, 0xf8)) { /* ADC A, reg8 */
+        u8* src = REG8(0);
+        u8 srcval = src ? *src : mem(HL);
+        u16 res = A + srcval + CF;
+        ZF = A == 0;
+        NF = 0;
+        HF = (A ^ srcval ^ res) & 0x10 ? 1 : 0;
+        CF = res & 0x100 ? 1 : 0;
+        A = (u8)res;
+
+#if 0
     } else if (M(op, 0x90, 0xf8)) { /* SUB reg8 */
-    } else if (M(op, 0x98, 0xf8)) { /* SBC A, reg8 */
 #endif
+    } else if (M(op, 0x98, 0xf8)) { /* SBC A, reg8 */
+        u8 *reg = REG8(0);
+        u8 regval = reg ? *reg : mem(HL);
+        u8 res = A - regval - CF;
+        ZF = res == 0;
+        NF = 1;
+        HF = ((s32)A & 0xf) - (regval & 0xf) - CF < 0;
+        CF = A < regval + CF;
     } else if (M(op, 0xa0, 0xf8)) { /* AND reg8 */
         u8 *reg = REG8(0);
         A = A & *reg;
@@ -518,14 +593,22 @@ int cpu_do_instruction(struct gb_state *s) {
     } else if (M(op, 0xc1, 0xcf)) { /* POP reg16 */
         u16 *dst = REG16S(4);
         *dst = mmu_pop16(s);
-#if 0
     } else if (M(op, 0xc2, 0xe7)) { /* JP cond, imm16 */
-#endif
+        u8 flag = (op >> 3) & 3;
+        if (((F & flagmasks[flag]) ? 1 : 0) == (flag & 1))
+            s->pc = IMM16;
+        else
+            s->pc += 2;
     } else if (M(op, 0xc3, 0xff)) { /* JP imm16 */
         s->pc = IMM16;
-#if 0
     } else if (M(op, 0xc4, 0xe7)) { /* CALL cond, imm16 */
-#endif
+        u16 dst = IMM16;
+        s->pc += 2;
+        u8 flag = (op >> 3) & 3;
+        if (((F & flagmasks[flag]) ? 1 : 0) == (flag & 1)) {
+            mmu_push16(s, s->pc);
+            s->pc = dst;
+        }
     } else if (M(op, 0xc5, 0xcf)) { /* PUSH reg16 */
         u16 *src = REG16S(4);
         mmu_push16(s,*src);
@@ -548,8 +631,14 @@ int cpu_do_instruction(struct gb_state *s) {
         s->pc = dst;
 #if 0
     } else if (M(op, 0xce, 0xff)) { /* ADC imm8 */
-    } else if (M(op, 0xd6, 0xff)) { /* SUB imm8 */
 #endif
+    } else if (M(op, 0xd6, 0xff)) { /* SUB imm8 */
+        u8 res = A - IMM8;
+        ZF = res == 0;
+        NF = 1;
+        HF = ((s32)A & 0xf) - (IMM8 & 0xf) < 0;
+        CF = A < IMM8;
+        s->pc++;
     } else if (M(op, 0xd9, 0xff)) { /* RETI */
         s->pc = mmu_pop16(s);
         s->interrupts_master_enabled = 1;
@@ -570,8 +659,9 @@ int cpu_do_instruction(struct gb_state *s) {
         CF = 0;
 #if 0
     } else if (M(op, 0xe8, 0xff)) { /* ADD SP, imm8s */
-    } else if (M(op, 0xe9, 0xff)) { /* LD PC, HL */
 #endif
+    } else if (M(op, 0xe9, 0xff)) { /* LD PC, HL (or JP (HL) ) */
+        s->pc = HL;
     } else if (M(op, 0xea, 0xff)) { /* LD (imm16), A */
         mmu_write(s, IMM16, A);
         s->pc += 2;
@@ -589,11 +679,20 @@ int cpu_do_instruction(struct gb_state *s) {
 #endif
     } else if (M(op, 0xf3, 0xff)) { /* DI */
         s->interrupts_master_enabled = 0;
-#if 0
     } else if (M(op, 0xf6, 0xff)) { /* OR imm8 */
+        A |= IMM8;
+        F = A ? 0 : FLAG_Z;
+        s->pc++;
     } else if (M(op, 0xf8, 0xff)) { /* LD HL, SP + imm8 */
+        u32 res = (u32)s->sp + (s8)IMM8;
+        ZF = 0;
+        NF = 0;
+        HF = (s->sp & 0xfff) + IMM8 > 0xfff;
+        CF = res > 0xffff;
+        HL = (u16)res;
+        s->pc++;
     } else if (M(op, 0xf9, 0xff)) { /* LD SP, HL */
-#endif
+        s->sp = HL;
     } else if (M(op, 0xfa, 0xff)) { /* LD A, (imm16) */
         A = mmu_read(s, IMM16);
         s->pc += 2;
