@@ -234,7 +234,7 @@ struct gb_state *new_gb_state(u8 *bios, u8 *rom, size_t rom_inpsize,
 
     s->mem_ROM = malloc(ROM_BANKSIZE * rom_banks);
     s->mem_RAM = malloc(RAM_BANKSIZE * ram_banks);
-    s->mem_EXTRAM = malloc(EXTRAM_BANKSIZE * ram_banks);
+    s->mem_EXTRAM = malloc(EXTRAM_BANKSIZE * extram_banks);
     s->mem_VRAM = malloc(VRAM_BANKSIZE * vram_banks);
 
     memset(s->mem_ROM, 0, ROM_BANKSIZE * rom_banks);
