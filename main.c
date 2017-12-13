@@ -302,9 +302,14 @@ int main(int argc, char *argv[]) {
         ret = cpu_do_instruction(gb_state);
         instr++;
 
-        if (gb_state->lcd_needs_rerender) {
+        if (gb_state->lcd_line_needs_rerender) {
+            gui_render_current_line(gb_state);
+            gb_state->lcd_line_needs_rerender = 0;
+        }
+
+        if (gb_state->lcd_screen_needs_rerender) {
             gui_render_frame(gb_state);
-            gb_state->lcd_needs_rerender = 0;
+            gb_state->lcd_screen_needs_rerender = 0;
 
             if (gui_handleinputs(gb_state))
                 break;
