@@ -284,14 +284,11 @@ int main(int argc, char *argv[]) {
 
     int ret = 0;
     int instr = 0;
-    int seconds_to_emulate, cycles_to_emulate;
     cpu_reset_state(gb_state);
-    seconds_to_emulate = 100;
-    cycles_to_emulate = 4194304 * seconds_to_emulate;
     struct timeval starttime, endtime;
     gettimeofday(&starttime, NULL);
 
-    while (!ret && gb_state->cycles < cycles_to_emulate) {
+    while (!ret) {
         //disassemble(gb_state);
 
         if (gb_state->dbg_break_next ||
@@ -328,8 +325,10 @@ int main(int argc, char *argv[]) {
     int t_usec = endtime.tv_usec - starttime.tv_usec;
     int t_sec = endtime.tv_sec - starttime.tv_sec;
     double exectime = t_sec + (t_usec / 1000000.);
+    double emulated_secs = instr / 4194304.;
 
-    printf("\nEmulated %f sec (%d instr) in %f sec WCT, %f%%\n", instr / 4194304., instr, exectime, seconds_to_emulate / exectime * 100);
+    printf("\nEmulated %f sec (%d instr) in %f sec WCT, %f%%\n", emulated_secs,
+            instr, exectime,  emulated_secs / exectime * 100);
 
     free(gb_state);
     free(rom);
