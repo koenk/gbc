@@ -141,12 +141,37 @@ int gui_handleinputs(struct gb_state *gb_state) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
-            case SDL_KEYDOWN:
-                if (event.key.keysym.sym == SDLK_ESCAPE)
-                    return 1;
-                break;
-            case SDL_QUIT:
+        case SDL_KEYDOWN:
+            switch (event.key.keysym.sym) {
+            case SDLK_ESCAPE:
                 return 1;
+
+            case SDLK_RETURN:    gb_state->io_buttons_buttons &= ~(1<<3); break;
+            case SDLK_BACKSPACE: gb_state->io_buttons_buttons &= ~(1<<2); break;
+            case SDLK_x:         gb_state->io_buttons_buttons &= ~(1<<1); break;
+            case SDLK_z:         gb_state->io_buttons_buttons &= ~(1<<0); break;
+            case SDLK_DOWN:      gb_state->io_buttons_dirs    &= ~(1<<3); break;
+            case SDLK_UP:        gb_state->io_buttons_dirs    &= ~(1<<2); break;
+            case SDLK_LEFT:      gb_state->io_buttons_dirs    &= ~(1<<1); break;
+            case SDLK_RIGHT:     gb_state->io_buttons_dirs    &= ~(1<<0); break;
+            }
+            break;
+
+        case SDL_KEYUP:
+            switch (event.key.keysym.sym) {
+            case SDLK_RETURN:    gb_state->io_buttons_buttons |= 1<<3; break;
+            case SDLK_BACKSPACE: gb_state->io_buttons_buttons |= 1<<2; break;
+            case SDLK_x:         gb_state->io_buttons_buttons |= 1<<1; break;
+            case SDLK_z:         gb_state->io_buttons_buttons |= 1<<0; break;
+            case SDLK_DOWN:      gb_state->io_buttons_dirs    |= 1<<3; break;
+            case SDLK_UP:        gb_state->io_buttons_dirs    |= 1<<2; break;
+            case SDLK_LEFT:      gb_state->io_buttons_dirs    |= 1<<1; break;
+            case SDLK_RIGHT:     gb_state->io_buttons_dirs    |= 1<<0; break;
+            }
+            break;
+
+        case SDL_QUIT:
+            return 1;
         }
     }
     return 0;
