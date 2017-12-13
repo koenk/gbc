@@ -101,6 +101,7 @@ struct gb_state
     u8 lcd_needs_rerender; // We set this at the end of every vblank
 
     u8 io_timer_DIV;
+    u32 io_timer_DIV_cycles;
     u8 io_timer_TIMA;
     u8 io_timer_TMA;
     u8 io_timer_TAC;

@@ -263,6 +263,14 @@ static void cpu_handle_LCD(struct gb_state *s, int op_cycles) {
         s->interrupts_request |= 1 << 1;
 }
 
+static void cpu_handle_timer(struct gb_state *s, int op_cycles) {
+    s->io_timer_DIV_cycles += op_cycles;
+    if (s->io_timer_DIV_cycles >= 16384) {
+        s->io_timer_DIV_cycles %= 16384;
+        s->io_timer_DIV++;
+    }
+}
+
 #define CF s->flags.CF
 #define HF s->flags.HF
 #define NF s->flags.NF
@@ -409,6 +417,7 @@ int cpu_do_instruction(struct gb_state *s) {
         op_cycles = cycles_per_instruction_cb[mmu_read(s, s->pc)];
 
     cpu_handle_LCD(s, op_cycles);
+    cpu_handle_timer(s, op_cycles);
     s->cycles += op_cycles;
 
     if (s->halt_for_interrupts) {
