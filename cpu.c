@@ -648,9 +648,14 @@ int cpu_do_instruction(struct gb_state *s) {
         u16 dst = IMM16;
         mmu_push16(s, s->pc + 2);
         s->pc = dst;
-#if 0
     } else if (M(op, 0xce, 0xff)) { /* ADC imm8 */
-#endif
+        u16 res = A + IMM8 + CF;
+        ZF = A == 0;
+        NF = 0;
+        HF = (A ^ IMM8 ^ res) & 0x10 ? 1 : 0;
+        CF = res & 0x100 ? 1 : 0;
+        A = (u8)res;
+        s->pc++;
     } else if (M(op, 0xd6, 0xff)) { /* SUB imm8 */
         u8 res = A - IMM8;
         ZF = res == 0;
@@ -662,9 +667,13 @@ int cpu_do_instruction(struct gb_state *s) {
     } else if (M(op, 0xd9, 0xff)) { /* RETI */
         s->pc = mmu_pop16(s);
         s->interrupts_master_enabled = 1;
-#if 0
     } else if (M(op, 0xde, 0xff)) { /* SBC imm8 */
-#endif
+        u8 res = A - IMM8 - CF;
+        ZF = res == 0;
+        NF = 1;
+        HF = ((s32)A & 0xf) - (IMM8 & 0xf) - CF < 0;
+        CF = A < IMM8 + CF;
+        s->pc++;
     } else if (M(op, 0xe0, 0xff)) { /* LD (0xff00 + imm8), A */
         mmu_write(s, 0xff00 + IMM8, A);
         s->pc++;
