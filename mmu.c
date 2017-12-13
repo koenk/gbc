@@ -80,14 +80,16 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
     case 0xf000:
         if (location < 0xfe00) {
             MMU_DEBUG_W("ECHO (0xc000 - 0xfdff)");
+            pause();
             break;
         }
         if (location < 0xfea0) { /* FE00 - FE9F */
-            MMU_DEBUG_W("Sprite attribute table");
+            MMU_DEBUG_W("Sprite attribute table (OAM)");
             break;
         }
         if (location < 0xff00) { /* FEA0 - FEFF */
             MMU_DEBUG_W("NOT USABLE");
+            pause();
             break;
         }
         if (location < 0xff80) { /* FF00 - FF7F */
@@ -378,16 +380,18 @@ u8 mmu_read(struct gb_state *s, u16 location) {
     case 0xf000:
         if (location < 0xfe00) {
             MMU_DEBUG_R("ECHO (0xc000 - 0xddff) B0");
+            pause();
             break;
         }
 
         if (location < 0xfea0) { /* FE00 - FE9F */
-            MMU_DEBUG_R("Sprite attribute table");
+            MMU_DEBUG_R("Sprite attribute table (OAM)");
             break;
         }
 
         if (location < 0xff00) { /* FEA0 - FEFF */
             MMU_DEBUG_R("NOT USABLE");
+            pause();
             break;
         }
 
