@@ -567,9 +567,15 @@ int cpu_do_instruction(struct gb_state *s) {
         CF = res & 0x100 ? 1 : 0;
         A = (u8)res;
 
-#if 0
     } else if (M(op, 0x90, 0xf8)) { /* SUB reg8 */
-#endif
+        u8 *reg = REG8(0);
+        u8 val = reg ? *reg : mem(HL);
+        u8 res = A - val;
+        ZF = res == 0;
+        NF = 1;
+        HF = ((s32)A & 0xf) - (val & 0xf) < 0;
+        CF = A < val;
+        A = res;
     } else if (M(op, 0x98, 0xf8)) { /* SBC A, reg8 */
         u8 *reg = REG8(0);
         u8 regval = reg ? *reg : mem(HL);
@@ -656,6 +662,7 @@ int cpu_do_instruction(struct gb_state *s) {
         NF = 1;
         HF = ((s32)A & 0xf) - (IMM8 & 0xf) < 0;
         CF = A < IMM8;
+        A = res;
         s->pc++;
     } else if (M(op, 0xd9, 0xff)) { /* RETI */
         s->pc = mmu_pop16(s);
