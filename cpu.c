@@ -179,12 +179,6 @@ void cpu_reset_state(struct gb_state* s)
 
 }
 
-void cpu_print_regs(struct gb_state *s) {
-    printf("\n\tAF\tBC\tDE\tHL\tSP\tPC\t\tLY\tZNHC\n");
-    printf("\t%04x\t%04x\t%04x\t%04x\t%04x\t%04x\t\t%04x\t%d%d%d%d\n",
-            s->reg16.AF, s->reg16.BC, s->reg16.DE, s->reg16.HL, s->sp, s->pc,
-            s->io_lcd_LY, s->flags.ZF, s->flags.NF, s->flags.HF, s->flags.CF);
-}
 
 static void cpu_handle_interrupts(struct gb_state *s) {
     /* Does NOT check for interupts enabled master. */

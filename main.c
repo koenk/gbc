@@ -15,6 +15,7 @@
 #include "mmu.h"
 #include "disassembler.h"
 #include "gui.h"
+#include "debugger.h"
 
 void print_rom_header_info(u8* rom) {
     printf("Title: %s\n", &rom[0x134]);
@@ -240,6 +241,8 @@ struct gb_state *new_gb_state(u8 *bios, u8 *rom, size_t rom_inpsize,
     memset(s->mem_ROM, 0, ROM_BANKSIZE * rom_banks);
     memcpy(s->mem_ROM, rom, rom_inpsize);
 
+    s->dbg_break_next = 0;
+    s->dbg_breakpoint = 0xffff;
 
     return s;
 }
@@ -291,6 +294,11 @@ int main(int argc, char *argv[]) {
     while (!ret && gb_state->cycles < cycles_to_emulate) {
         //disassemble(gb_state);
 
+        if (gb_state->dbg_break_next ||
+            gb_state->pc == gb_state->dbg_breakpoint)
+            if (dbg_run_debugger(gb_state))
+                break;
+
         ret = cpu_do_instruction(gb_state);
         instr++;
 
@@ -310,7 +318,7 @@ int main(int argc, char *argv[]) {
     if (ret)
         disassemble(gb_state);
 
-    cpu_print_regs(gb_state);
+    dbg_print_regs(gb_state);
 
     int t_usec = endtime.tv_usec - starttime.tv_usec;
     int t_sec = endtime.tv_sec - starttime.tv_sec;

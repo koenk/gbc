@@ -164,6 +164,9 @@ struct gb_state
     char has_extram;
     char has_battery;
     char has_rtc;
+
+    char dbg_break_next;
+    u16 dbg_breakpoint;
 };
 
 

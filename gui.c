@@ -146,6 +146,10 @@ int gui_handleinputs(struct gb_state *gb_state) {
             case SDLK_ESCAPE:
                 return 1;
 
+            case SDLK_b:
+                gb_state->dbg_break_next = 1;
+                break;
+
             case SDLK_RETURN:    gb_state->io_buttons_buttons &= ~(1<<3); break;
             case SDLK_BACKSPACE: gb_state->io_buttons_buttons &= ~(1<<2); break;
             case SDLK_x:         gb_state->io_buttons_buttons &= ~(1<<1); break;
