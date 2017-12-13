@@ -52,6 +52,13 @@ int gui_init(void) {
     return 0;
 }
 
+struct __attribute__((__packed__)) OAMentry {
+    u8 y;
+    u8 x;
+    u8 tile;
+    u8 flags;
+};
+
 void gui_render_current_line(struct gb_state *gb_state) {
     /*
      * Tile Data @ 8000-8FFF or 8800-97FF defines the pixels per Tile, which can
@@ -85,16 +92,31 @@ void gui_render_current_line(struct gb_state *gb_state) {
     u8 bg_scroll_x = gb_state->io_lcd_SCX;
     u8 bg_scroll_y = gb_state->io_lcd_SCY;
 
-    u8 tilemap_low = (gb_state->io_lcd_LCDC & (1<<4)) ? 1 : 0;
-    u8 tilemap_unsigned = tilemap_low;
+    u8 bgwin_tilemap_low = (gb_state->io_lcd_LCDC & (1<<4)) ? 1 : 0;
+    u8 bgwin_tilemap_unsigned = bgwin_tilemap_low;
     u8 bgmap_high = (gb_state->io_lcd_LCDC & (1<<3)) ? 1 : 0;
+    u8 sprite_8x16 = (gb_state->io_lcd_LCDC & (1<<2)) ? 1 : 0;
+    u8 obj_enable = (gb_state->io_lcd_LCDC & (1<<1)) ? 1 : 0;
 
-    u16 tilemap_addr = tilemap_low ? 0x8000 : 0x9000;
+    u16 bgwin_tilemap_addr = bgwin_tilemap_low ? 0x8000 : 0x9000;
     u16 bgmap_addr = bgmap_high ? 0x9c00 : 0x9800;
 
-    u8 *tiledata = &gb_state->mem_VRAM[tilemap_addr - 0x8000];
+    u8 *bgwin_tiledata = &gb_state->mem_VRAM[bgwin_tilemap_addr - 0x8000];
+    u8 *obj_tiledata = &gb_state->mem_VRAM[0x8000 - 0x8000];
     u8 *bgmap = &gb_state->mem_VRAM[bgmap_addr - 0x8000];
 
+    /* OAM scan - gather (max 10) objects on this line in cache */
+    assert(!sprite_8x16);
+    struct OAMentry *OAM = (struct OAMentry*)&gb_state->mem_OAM[0];
+    struct OAMentry objs[10];
+    int num_objs = 0;
+    if (obj_enable)
+        for (int i = 0; i < 40; i++)
+            if (y >= OAM[i].y - 16 && y < OAM[i].y - 16 + 8)
+                objs[num_objs++] = OAM[i];
+
+
+    /* Draw all background pixels of this line. */
     for (int x = 0; x < GUI_PX_WIDTH; x++) {
         int bg_x = (x + bg_scroll_x) % 256,
             bg_y = (y + bg_scroll_y) % 256;
@@ -104,8 +126,8 @@ void gui_render_current_line(struct gb_state *gb_state) {
             bg_tileoff_y = bg_y % 8;
 
         u8 bg_tile_idx_raw = bgmap[bg_tile_x + bg_tile_y * 32];
-        s16 bg_tile_idx = tilemap_unsigned ? (s16)(u16)bg_tile_idx_raw :
-                                             (s16)(s8)bg_tile_idx_raw;
+        s16 bg_tile_idx = bgwin_tilemap_unsigned ? (s16)(u16)bg_tile_idx_raw :
+                                                   (s16)(s8)bg_tile_idx_raw;
 
         /* We have packed 2-bit color indices here, so the bits look like:
          * (each bit denoted by the pixel index in tile)
@@ -113,16 +135,39 @@ void gui_render_current_line(struct gb_state *gb_state) {
          * So for the 9th pixel (which is px 1,1) we need bytes 2+3 (9/8*2 [+1])
          * and then shift both by 7 (8-9%8).
          */
-        int i = bg_tileoff_x + bg_tileoff_y * 8;
-        int shift = 7 - i % 8;
-        u8 b1 = tiledata[bg_tile_idx * 16 + i/8*2];
-        u8 b2 = tiledata[bg_tile_idx * 16 + i/8*2 + 1];
+        int bg_tileoff = bg_tileoff_x + bg_tileoff_y * 8;
+        int shift = 7 - bg_tileoff % 8;
+        u8 b1 = bgwin_tiledata[bg_tile_idx * 16 + bg_tileoff/8*2];
+        u8 b2 = bgwin_tiledata[bg_tile_idx * 16 + bg_tileoff/8*2 + 1];
         u8 colidx = ((b1 >> shift) & 1) |
-                    (((b2 >> shift) & 1) << 1);
+                   (((b2 >> shift) & 1) << 1);
 
         /* TODO palette */
 
         pixbuf[x + y * GUI_PX_WIDTH] = colidx;
+    }
+
+    /* Draw any sprites (objects) on this line. */
+    for (int x = 0; x < GUI_PX_WIDTH; x++) {
+        for (int i = 0; i < num_objs; i++) {
+            int obj_tileoff_x = x - (objs[i].x - 8),
+                obj_tileoff_y = y - (objs[i].y - 16);
+
+            if (obj_tileoff_x < 0 || obj_tileoff_x >= 8)
+                continue;
+
+            /* TODO: flip, 8x16, palette, prio */
+
+            int obj_tileoff = obj_tileoff_x + obj_tileoff_y * 8;
+            int shift = 7 - obj_tileoff % 8;
+            u8 b1 = obj_tiledata[objs[i].tile * 16 + obj_tileoff/8*2];
+            u8 b2 = obj_tiledata[objs[i].tile * 16 + obj_tileoff/8*2 + 1];
+            u8 colidx = ((b1 >> shift) & 1) |
+                       (((b2 >> shift) & 1) << 1);
+
+            if (colidx != 0)
+                pixbuf[x + y * GUI_PX_WIDTH] = colidx;
+        }
     }
 }
 
