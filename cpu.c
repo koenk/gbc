@@ -167,6 +167,7 @@ void cpu_reset_state(struct gb_state* s)
     memset(s->mem_RAM, 0, s->mem_num_banks_ram * RAM_BANKSIZE);
     memset(s->mem_EXTRAM, 0, s->mem_num_banks_extram * EXTRAM_BANKSIZE);
     memset(s->mem_VRAM, 0, s->mem_num_banks_vram * VRAM_BANKSIZE);
+    memset(s->mem_OAM, 0, 0xa0);
     memset(s->mem_HRAM, 0, 0x7f);
 
     s->mem_latch_rtc = 0x01;

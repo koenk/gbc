@@ -155,6 +155,7 @@ struct gb_state
     u8 *mem_RAM; /* Internal RAM (WRAM), 8K non-CGB, 32K CGB (banked) */
     u8 *mem_EXTRAM; /* External (cartridge) RAM, optional, max 32K (banked) */
     u8 *mem_VRAM; /* Video RAM, 8K non-CGB, 16K CGB (banked) */
+    u8 mem_OAM[0xa0]; /* Sprite/Object attributes */
     u8 mem_HRAM[0x7f];
 
     u8 mem_latch_rtc;

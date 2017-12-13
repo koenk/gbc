@@ -85,6 +85,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
         }
         if (location < 0xfea0) { /* FE00 - FE9F */
             MMU_DEBUG_W("Sprite attribute table (OAM)");
+            s->mem_OAM[location - 0xfe00] = value;
             break;
         }
         if (location < 0xff00) { /* FEA0 - FEFF */
@@ -386,7 +387,7 @@ u8 mmu_read(struct gb_state *s, u16 location) {
 
         if (location < 0xfea0) { /* FE00 - FE9F */
             MMU_DEBUG_R("Sprite attribute table (OAM)");
-            break;
+            return s->mem_OAM[location - 0xfe00];
         }
 
         if (location < 0xff00) { /* FEA0 - FEFF */
