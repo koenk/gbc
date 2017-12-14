@@ -237,7 +237,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 break;
             case 0xff41:
                 MMU_DEBUG_W("LCD Stat");
-                s->io_lcd_STAT = value;
+                s->io_lcd_STAT = (value & ~7) | (s->io_lcd_STAT & 7);
                 break;
             case 0xff42:
                 MMU_DEBUG_W("Scroll Y");
@@ -250,16 +250,20 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
             case 0xff44:
                 MMU_DEBUG_W("LCD LY");
                 s->io_lcd_LY = 0x0;
-                s->io_lcd_STAT = (s->io_lcd_STAT & 0xfb) | (s->io_lcd_LY == s->io_lcd_LYC);
+                s->io_lcd_STAT = (s->io_lcd_STAT & 0xfb) | ((s->io_lcd_LY == s->io_lcd_LYC) << 2);
                 break;
             case 0xff45:
                 MMU_DEBUG_W("LCD LYC");
                 s->io_lcd_LYC = value;
-                s->io_lcd_STAT = (s->io_lcd_STAT & 0xfb) | (s->io_lcd_LY == s->io_lcd_LYC);
+                s->io_lcd_STAT = (s->io_lcd_STAT & 0xfb) | ((s->io_lcd_LY == s->io_lcd_LYC) << 2);
                 break;
             case 0xff46:
                 MMU_DEBUG_W("DMA source=%.4x dest=0xfe00 (OAM)", value << 8);
-                /* TODO */
+                /* Normally this transfer takes ~160ms (during which only HRAM
+                 * is accessible) but it's okay to be instantaneous. Normally
+                 * roms loop for ~200 cycles or so to wait.  */
+                for (int i = 0; i < OAM_SIZE; i++)
+                    s->mem_OAM[i] = mmu_read(s, (value << 8) + i);
                 break;
             case 0xff47:
                 MMU_DEBUG_W("Background palette");
@@ -487,6 +491,9 @@ u8 mmu_read(struct gb_state *s, u16 location) {
             case 0xff40:
                 MMU_DEBUG_R("LCD Control (%04x: %02x)", location, s->io_lcd_LCDC);
                 return s->io_lcd_LCDC;
+            case 0xff41:
+                MMU_DEBUG_R("LCD Stat");
+                return s->io_lcd_STAT;
             case 0xff42:
                 MMU_DEBUG_R("Scroll Y");
                 return s->io_lcd_SCY;

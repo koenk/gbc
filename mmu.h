@@ -28,6 +28,8 @@
 #define VRAM_BANKSIZE       0x2000 /* 8K */
 #define EXTRAM_BANKSIZE     0x2000 /* 8K */
 
+#define OAM_SIZE            0xa0
+
 
 u8 mmu_read(struct gb_state *s, u16 location);
 void mmu_write(struct gb_state *s, u16 location, u8 value);
