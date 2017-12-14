@@ -551,7 +551,7 @@ int cpu_do_instruction(struct gb_state *s) {
         u8* src = REG8(0);
         u8 srcval = src ? *src : mem(HL);
         u16 res = A + srcval;
-        ZF = A == 0;
+        ZF = (u8)res == 0;
         NF = 0;
         HF = (A ^ srcval ^ res) & 0x10 ? 1 : 0;
         CF = res & 0x100 ? 1 : 0;
@@ -560,7 +560,7 @@ int cpu_do_instruction(struct gb_state *s) {
         u8* src = REG8(0);
         u8 srcval = src ? *src : mem(HL);
         u16 res = A + srcval + CF;
-        ZF = A == 0;
+        ZF = (u8)res == 0;
         NF = 0;
         HF = (A ^ srcval ^ res) & 0x10 ? 1 : 0;
         CF = res & 0x100 ? 1 : 0;
@@ -583,6 +583,7 @@ int cpu_do_instruction(struct gb_state *s) {
         NF = 1;
         HF = ((s32)A & 0xf) - (regval & 0xf) - CF < 0;
         CF = A < regval + CF;
+        A = res;
     } else if (M(op, 0xa0, 0xf8)) { /* AND reg8 */
         u8 *reg = REG8(0);
         A = A & *reg;
