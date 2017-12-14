@@ -212,6 +212,7 @@ int gui_handleinputs(struct gb_state *gb_state) {
         case SDL_KEYDOWN:
             switch (event.key.keysym.sym) {
             case SDLK_ESCAPE:
+            case SDLK_q:
                 return 1;
 
             case SDLK_b:
