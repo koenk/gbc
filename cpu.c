@@ -617,6 +617,7 @@ int cpu_do_instruction(struct gb_state *s) {
     } else if (M(op, 0xc1, 0xcf)) { /* POP reg16 */
         u16 *dst = REG16S(4);
         *dst = mmu_pop16(s);
+        F = F & 0xf0;
     } else if (M(op, 0xc2, 0xe7)) { /* JP cond, imm16 */
         u8 flag = (op >> 3) & 3;
         if (((F & flagmasks[flag]) ? 1 : 0) == (flag & 1))
@@ -638,7 +639,7 @@ int cpu_do_instruction(struct gb_state *s) {
         mmu_push16(s,*src);
     } else if (M(op, 0xc6, 0xff)) { /* ADD A, imm8 */
         u16 res = A + IMM8;
-        ZF = A == 0;
+        ZF = (u8)res == 0;
         NF = 0;
         HF = (A ^ IMM8 ^ res) & 0x10 ? 1 : 0;
         CF = res & 0x100 ? 1 : 0;
@@ -655,7 +656,7 @@ int cpu_do_instruction(struct gb_state *s) {
         s->pc = dst;
     } else if (M(op, 0xce, 0xff)) { /* ADC imm8 */
         u16 res = A + IMM8 + CF;
-        ZF = A == 0;
+        ZF = (u8)res == 0;
         NF = 0;
         HF = (A ^ IMM8 ^ res) & 0x10 ? 1 : 0;
         CF = res & 0x100 ? 1 : 0;
@@ -678,6 +679,7 @@ int cpu_do_instruction(struct gb_state *s) {
         NF = 1;
         HF = ((s32)A & 0xf) - (IMM8 & 0xf) - CF < 0;
         CF = A < IMM8 + CF;
+        A = res;
         s->pc++;
     } else if (M(op, 0xe0, 0xff)) { /* LD (0xff00 + imm8), A */
         mmu_write(s, 0xff00 + IMM8, A);
