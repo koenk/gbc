@@ -213,6 +213,24 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 MMU_DEBUG_W("Sound enabled flags");
                 s->io_sound_enabled = value;
                 break;
+            case 0xff30:
+            case 0xff31:
+            case 0xff32:
+            case 0xff33:
+            case 0xff34:
+            case 0xff35:
+            case 0xff36:
+            case 0xff37:
+            case 0xff38:
+            case 0xff39:
+            case 0xff3a:
+            case 0xff3b:
+            case 0xff3c:
+            case 0xff3d:
+            case 0xff3e:
+            case 0xff3f:
+                MMU_DEBUG_W("Waveform pattern RAM");
+                break;
             case 0xff40:
                 MMU_DEBUG_W("LCD Control");
                 s->io_lcd_LCDC = value;
@@ -301,7 +319,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                     pause();
                 break;
             default:
-                MMU_DEBUG_W("UNKNOWN");
+                MMU_DEBUG_W("UNKNOWN I/O port");
                 pause();
             }
 
@@ -439,12 +457,33 @@ u8 mmu_read(struct gb_state *s, u16 location) {
             case 0xff1c:
                 MMU_DEBUG_R("Sound channel 3 level");
                 return s->io_sound_channel3_level;
+            case 0xff24:
+                MMU_DEBUG_R("Sound channel control");
+                return s->io_sound_terminal_control;
             case 0xff25:
                 MMU_DEBUG_R("Sound output terminal");
                 return s->io_sound_out_terminal;
             case 0xff26:
                 MMU_DEBUG_R("Sound enabled flags");
                 return s->io_sound_enabled;
+            case 0xff30:
+            case 0xff31:
+            case 0xff32:
+            case 0xff33:
+            case 0xff34:
+            case 0xff35:
+            case 0xff36:
+            case 0xff37:
+            case 0xff38:
+            case 0xff39:
+            case 0xff3a:
+            case 0xff3b:
+            case 0xff3c:
+            case 0xff3d:
+            case 0xff3e:
+            case 0xff3f:
+                MMU_DEBUG_R("Waveform pattern RAM @%.4x", location);
+                break;
             case 0xff40:
                 MMU_DEBUG_R("LCD Control (%04x: %02x)", location, s->io_lcd_LCDC);
                 return s->io_lcd_LCDC;
@@ -486,7 +525,7 @@ u8 mmu_read(struct gb_state *s, u16 location) {
                 return s->mem_bank_ram;
             }
 
-            MMU_DEBUG_R("UNKNOWN");
+            MMU_DEBUG_R("UNKNOWN @%.4x", location);
             pause();
         }
         if (location < 0xffff) { /* FF80 - FFFE */
