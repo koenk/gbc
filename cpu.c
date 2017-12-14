@@ -430,9 +430,8 @@ int cpu_do_instruction(struct gb_state *s) {
         u16 *dst = REG16(4);
         *dst = IMM16;
         s->pc += 2;
-#if 0
     } else if (M(op, 0x02, 0xff)) { /* LD (BC), A */
-#endif
+        mmu_write(s, BC, A);
     } else if (M(op, 0x03, 0xcf)) { /* INC reg16 */
         u16 *reg = REG16(4);
         *reg += 1;
@@ -500,9 +499,13 @@ int cpu_do_instruction(struct gb_state *s) {
         s->pc += (s8)IMM8 + 1;
     } else if (M(op, 0x1a, 0xff)) { /* LD A, (DE) */
         A = mem(DE);
-#if 0
     } else if (M(op, 0x1f, 0xff)) { /* RRA */
-#endif
+        u8 res = (A >> 1) | (CF << 7);
+        ZF = 0;
+        NF = 0;
+        HF = 0;
+        CF = A & 0x1;
+        A = res;
     } else if (M(op, 0x20, 0xe7)) { /* JR cond, off8 */
         u8 flag = (op >> 3) & 3;
         if (((F & flagmasks[flag]) ? 1 : 0) == (flag & 1))
@@ -599,10 +602,11 @@ int cpu_do_instruction(struct gb_state *s) {
         F = A ? 0 : FLAG_Z;
     } else if (M(op, 0xb8, 0xf8)) { /* CP reg8 */
         u8 *reg = REG8(0);
-        ZF = A == *reg;
+        u8 regval = reg ? *reg : mem(HL);
+        ZF = A == regval;
         NF = 1;
-        HF = (A & 0xf) < (*reg & 0xf);
-        CF = A < *reg;
+        HF = (A & 0xf) < (regval & 0xf);
+        CF = A < regval;
     } else if (M(op, 0xc0, 0xe7)) { /* RET cond */
         /* TODO cyclecount depends on taken or not */
 
@@ -640,9 +644,9 @@ int cpu_do_instruction(struct gb_state *s) {
         CF = res & 0x100 ? 1 : 0;
         A = (u8)res;
         s->pc++;
-#if 0
     } else if (M(op, 0xc7, 0xc7)) { /* RST imm8 */
-#endif
+        mmu_push16(s, s->pc);
+        s->pc = ((op >> 3) & 7) * 8;
     } else if (M(op, 0xc9, 0xff)) { /* RET */
         s->pc = mmu_pop16(s);
     } else if (M(op, 0xcd, 0xff)) { /* CALL imm16 */
