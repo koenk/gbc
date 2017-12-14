@@ -59,6 +59,10 @@ struct __attribute__((__packed__)) OAMentry {
     u8 flags;
 };
 
+u8 palette_get(u8 palette, u8 col) {
+    return (palette >> (col << 1)) & 0x3;
+}
+
 void gui_render_current_line(struct gb_state *gb_state) {
     /*
      * Tile Data @ 8000-8FFF or 8800-97FF defines the pixels per Tile, which can
@@ -105,6 +109,10 @@ void gui_render_current_line(struct gb_state *gb_state) {
     u8 *obj_tiledata = &gb_state->mem_VRAM[0x8000 - 0x8000];
     u8 *bgmap = &gb_state->mem_VRAM[bgmap_addr - 0x8000];
 
+    u8 bg_palette = gb_state->io_lcd_BGP;
+    u8 obj_palette1 = gb_state->io_lcd_OBP0;
+    u8 obj_palette2 = gb_state->io_lcd_OBP1;
+
     /* OAM scan - gather (max 10) objects on this line in cache */
     assert(!sprite_8x16);
     struct OAMentry *OAM = (struct OAMentry*)&gb_state->mem_OAM[0];
@@ -142,8 +150,7 @@ void gui_render_current_line(struct gb_state *gb_state) {
         u8 colidx = ((b1 >> shift) & 1) |
                    (((b2 >> shift) & 1) << 1);
 
-        /* TODO palette */
-
+        u8 col = palette_get(bg_palette, colidx);
         pixbuf[x + y * GUI_PX_WIDTH] = colidx;
     }
 
@@ -156,7 +163,7 @@ void gui_render_current_line(struct gb_state *gb_state) {
             if (obj_tileoff_x < 0 || obj_tileoff_x >= 8)
                 continue;
 
-            /* TODO: flip, 8x16, palette, prio */
+            /* TODO: flip, 8x16, prio */
 
             int obj_tileoff = obj_tileoff_x + obj_tileoff_y * 8;
             int shift = 7 - obj_tileoff % 8;
@@ -165,8 +172,11 @@ void gui_render_current_line(struct gb_state *gb_state) {
             u8 colidx = ((b1 >> shift) & 1) |
                        (((b2 >> shift) & 1) << 1);
 
-            if (colidx != 0)
-                pixbuf[x + y * GUI_PX_WIDTH] = colidx;
+            if (colidx != 0) {
+                u8 pal = objs[i].flags & (1<<4) ? obj_palette2 : obj_palette1;
+                u8 col = palette_get(pal, colidx);
+                pixbuf[x + y * GUI_PX_WIDTH] = col;
+            }
         }
     }
 }
