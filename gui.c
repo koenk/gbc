@@ -120,9 +120,12 @@ void gui_render_current_line(struct gb_state *gb_state) {
     struct OAMentry objs[10];
     int num_objs = 0;
     if (obj_enable)
-        for (int i = 0; i < 40; i++)
+        for (int i = 0; i < 40; i++) {
             if (y >= OAM[i].y - 16 && y < OAM[i].y - 16 + obj_tile_height)
                 objs[num_objs++] = OAM[i];
+            if (num_objs == 10)
+                break;
+        }
 
 
     /* Draw all background pixels of this line. */
