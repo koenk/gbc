@@ -164,7 +164,7 @@ void gui_render_current_line(struct gb_state *gb_state) {
             int obj_tileoff_x = x - (objs[i].x - 8),
                 obj_tileoff_y = y - (objs[i].y - 16);
 
-            if (obj_tileoff_x < 0 || obj_tileoff_x >= obj_tile_height)
+            if (obj_tileoff_x < 0 || obj_tileoff_x >= 8)
                 continue;
 
             /* TODO: flip, prio */
