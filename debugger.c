@@ -78,6 +78,7 @@ int dbg_run_debugger(struct gb_state *s) {
             break;
         }
         case 'q': /* Quit */
+            s->quit = 1;
             return 1;
 
         case 'h': /* Help */

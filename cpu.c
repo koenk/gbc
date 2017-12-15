@@ -11,7 +11,6 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "pause.h"
 #include "mmu.h"
 
 static void cpu_handle_interrupts(struct gb_state *state);

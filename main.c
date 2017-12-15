@@ -244,6 +244,8 @@ struct gb_state *new_gb_state(u8 *bios, u8 *rom, size_t rom_inpsize,
     s->dbg_break_next = 0;
     s->dbg_breakpoint = 0xffff;
 
+    s->quit = 0;
+
     return s;
 }
 
@@ -288,7 +290,7 @@ int main(int argc, char *argv[]) {
     struct timeval starttime, endtime;
     gettimeofday(&starttime, NULL);
 
-    while (!ret) {
+    while (!ret && !gb_state->quit) {
         //disassemble(gb_state);
 
         if (gb_state->dbg_break_next ||

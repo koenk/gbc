@@ -1,9 +1,9 @@
 #include <stdio.h>
 
-#include "pause.h"
 #include "mmu.h"
+#include "debugger.h"
 
-#if 1
+#if 0
 #define MMU_DEBUG_W(fmt, ...) \
     do { \
         printf(" [MMU] [W] " fmt " @%x: %x\n", ##__VA_ARGS__, location, value); \
@@ -18,6 +18,20 @@
 #define MMU_DEBUG_R(...)
 #endif
 
+#define mmu_error(fmt, ...) \
+    do { \
+        printf("MMU Error: " fmt "\n", ##__VA_ARGS__); \
+        dbg_run_debugger(s); \
+    } while (0)
+
+#define mmu_assert(cond) \
+    do { \
+        if (!(cond)) { \
+            printf("MMU Assertion failed at %s:%d: " #cond "\n", __FILE__, __LINE__); \
+            dbg_run_debugger(s); \
+        } \
+    } while (0)
+
 void mmu_write(struct gb_state *s, u16 location, u8 value) {
     //MMU_DEBUG_W("Mem write (%x) %x: ", location, value);
     switch (location & 0xf000) {
@@ -29,15 +43,15 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
     case 0x2000: /* 2000 - 3FFF */
     case 0x3000:
         MMU_DEBUG_W("ROM bank number");
-        assert(value > 0);
-        assert(value < s->mem_num_banks_rom);
+        if (value == 0)
+            value = 1;
+        mmu_assert(value < s->mem_num_banks_rom);
         s->mem_bank_rom = value;
         break;
     case 0x4000: /* 4000 - 5FFF */
     case 0x5000:
         MMU_DEBUG_W("RAM bank number -OR- RTC register select");
-        assert(value > 0);
-        assert(value < s->mem_num_banks_ram); /* TODO: RTC 08-0C */
+        mmu_assert(value < s->mem_num_banks_ram); /* TODO: RTC 08-0C */
         s->mem_ram_rtc_select = value;
         break;
     case 0x6000: /* 6000 - 7FFF */
@@ -63,7 +77,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
         else if (s->mem_ram_rtc_select >= 0x08 && s->mem_ram_rtc_select <= 0x0c)
             s->mem_RTC[s->mem_ram_rtc_select - 0xa008] = value;
         else
-            pause();
+            mmu_error("Writing to extram/rtc with invalid selection (%d) @%x, val=%x", s->mem_ram_rtc_select, location, value);
         break;
     case 0xc000: /* C000 - CFFF */
         MMU_DEBUG_W("RAM B0");
@@ -74,13 +88,12 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
         s->mem_RAM[s->mem_bank_ram * RAM_BANKSIZE + location - 0xd000] = value;
         break;
     case 0xe000: /* E000 - FDFF */
-        MMU_DEBUG_W("ECHO (0xc000 - 0xfdff)");
-        pause();
+        mmu_error("Writing to ECHO area (0xc00-0xfdff) @%x, val=%x", location, value);
         break;
     case 0xf000:
         if (location < 0xfe00) {
             MMU_DEBUG_W("ECHO (0xc000 - 0xfdff)");
-            pause();
+            mmu_error("Writing to ECHO area (0xc00-0xfdff) @%x, val=%x", location, value);
             break;
         }
         if (location < 0xfea0) { /* FE00 - FE9F */
@@ -90,7 +103,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
         }
         if (location < 0xff00) { /* FEA0 - FEFF */
             MMU_DEBUG_W("NOT USABLE");
-            pause();
+            //mmu_error("Writing to unusable area @%x, val=%x", location, value);
             break;
         }
         if (location < 0xff80) { /* FF00 - FF7F */
@@ -285,6 +298,9 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 MMU_DEBUG_W("window X");
                 s->io_lcd_WX = value;
                 break;
+            case 0xff4d:
+                MMU_DEBUG_W("KEY1: CGB speed (ignored)");
+                break;
             case 0xff4f:
                 MMU_DEBUG_W("VRAM Bank");
                 s->mem_bank_vram = value & 1;
@@ -319,12 +335,15 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                     s->mem_bank_ram = 1;
                 else if (value < 8)
                     s->mem_bank_ram = value;
-                else
-                    pause();
+                else {
+                    mmu_error("Selecting invalid ROM bank %d (@%x)", value, location);
+                }
+                break;
+            case 0xff7f:
+                MMU_DEBUG_W("UNKNOWN I/O port (tetris hack)");
                 break;
             default:
-                MMU_DEBUG_W("UNKNOWN I/O port");
-                pause();
+                mmu_error("Writing to unknown I/O port: %x", location);
             }
 
             break;
@@ -344,9 +363,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
             break;
         }
     default:
-        MMU_DEBUG_W("INVALID LOCATION");
-        pause();
-        break;
+        mmu_error("Invalid write location: %x val=%x", location, value);
     }
 }
 
@@ -370,8 +387,8 @@ u8 mmu_read(struct gb_state *s, u16 location) {
     case 0x6000:
     case 0x7000:
         //MMU_DEBUG_R("ROM B%d, %4x", s->mem_bank_rom, s->mem_bank_rom * 0x4000 + (location - 0x4000));
-        assert(s->mem_num_banks_rom > 0);
-        assert(s->mem_bank_rom < s->mem_num_banks_rom);
+        mmu_assert(s->mem_num_banks_rom > 0);
+        mmu_assert(s->mem_bank_rom < s->mem_num_banks_rom);
         return s->mem_ROM[s->mem_bank_rom * 0x4000 + (location - 0x4000)];
         break;
     case 0x8000: /* 8000 - 9FFF */
@@ -387,24 +404,21 @@ u8 mmu_read(struct gb_state *s, u16 location) {
         else if (s->mem_ram_rtc_select >= 0x08 && s->mem_ram_rtc_select <= 0x0c)
             return s->mem_RTC[s->mem_ram_rtc_select - 0xa008];
 
-        pause();
+        mmu_error("Reading from unknown EXTRAM/RTC: select=%x @%x", s->mem_ram_rtc_select, location);
         return 0;
     case 0xc000: /* C000 - CFFF */
-        MMU_DEBUG_R("RAM B0  @%x", (location - 0xc000));
+        //MMU_DEBUG_R("RAM B0  @%x", (location - 0xc000));
         return s->mem_RAM[location - 0xc000];
     case 0xd000: /* D000 - DFFF */
         MMU_DEBUG_R("RAM B%d @%x", s->mem_bank_ram, location - 0xd000);
         return s->mem_RAM[s->mem_bank_ram * RAM_BANKSIZE + location - 0xd000];
-        break;
     case 0xe000: /* E000 - FDFF */
-        MMU_DEBUG_R("ECHO (0xc000 - 0xddff) B0");
-        pause();
-        break;
+        mmu_error("Reading from ECHO (0xc000 - 0xddff) B0: %x", location);
+        return 0;
     case 0xf000:
         if (location < 0xfe00) {
-            MMU_DEBUG_R("ECHO (0xc000 - 0xddff) B0");
-            pause();
-            break;
+            mmu_error("Reading from ECHO (0xc000 - 0xddff) B0: %x", location);
+            return 0;
         }
 
         if (location < 0xfea0) { /* FE00 - FE9F */
@@ -413,9 +427,8 @@ u8 mmu_read(struct gb_state *s, u16 location) {
         }
 
         if (location < 0xff00) { /* FEA0 - FEFF */
-            MMU_DEBUG_R("NOT USABLE");
-            pause();
-            break;
+            mmu_error("Reading from unusable area: %x", location);
+            return 0;
         }
 
         if (location < 0xff80) { /* FF00 - FF7F */
@@ -423,11 +436,15 @@ u8 mmu_read(struct gb_state *s, u16 location) {
             switch (location) {
             case 0xff00:
                 MMU_DEBUG_R("Joypad");
+                u8 rv = 0;
                 if ((s->io_buttons & (1 << 4)) == 0)
-                    return (s->io_buttons & 0xf0) | (s->io_buttons_dirs & 0x0f);
+                    rv = (s->io_buttons & 0xf0) | (s->io_buttons_dirs & 0x0f);
                 else if ((s->io_buttons & (1 << 5)) == 0)
-                    return (s->io_buttons & 0xf0) | (s->io_buttons_buttons & 0x0f);
-                return (s->io_buttons & 0xf0) | (s->io_buttons_buttons & 0x0f);
+                    rv =  (s->io_buttons & 0xf0) | (s->io_buttons_buttons & 0x0f);
+                else
+                    rv = (s->io_buttons & 0xf0) | (s->io_buttons_buttons & 0x0f);
+                return rv;
+
             case 0xff01:
                 MMU_DEBUG_R("Serial link data");
                 return s->io_serial_data;
@@ -452,6 +469,9 @@ u8 mmu_read(struct gb_state *s, u16 location) {
             case 0xff10:
                 MMU_DEBUG_R("Sound channel 1 sweep");
                 return s->io_sound_channel1_sweep;
+            case 0xff11:
+                MMU_DEBUG_R("Sound channel 1 length/pattern");
+                return s->io_sound_channel1_length_pattern;
             case 0xff12:
                 MMU_DEBUG_R("Sound channel 1 envelope");
                 return s->io_sound_channel1_envelope;
@@ -521,6 +541,9 @@ u8 mmu_read(struct gb_state *s, u16 location) {
             case 0xff4b:
                 MMU_DEBUG_R("Window X");
                 return s->io_lcd_WX;
+            case 0xff4d:
+                MMU_DEBUG_R("KEY1: CGB speed (ignored)");
+                return 0;
             case 0xff4f:
                 MMU_DEBUG_R("VRAM Bank");
                 return s->mem_bank_vram & 1;
@@ -532,11 +555,11 @@ u8 mmu_read(struct gb_state *s, u16 location) {
                 return s->mem_bank_ram;
             }
 
-            MMU_DEBUG_R("UNKNOWN @%.4x", location);
-            pause();
+            mmu_error("Reading from unknown IO port @%.4x", location);
+            return 0;
         }
         if (location < 0xffff) { /* FF80 - FFFE */
-            MMU_DEBUG_R("HRAM  @%x (%x)", location - 0xff80, s->mem_HRAM[location - 0xff80]);
+            //MMU_DEBUG_R("HRAM  @%x (%x)", location - 0xff80, s->mem_HRAM[location - 0xff80]);
             return s->mem_HRAM[location - 0xff80];
         }
         if (location == 0xffff) { /* FFFF */
@@ -545,8 +568,8 @@ u8 mmu_read(struct gb_state *s, u16 location) {
         }
 
     default:
-        MMU_DEBUG_R("INVALID LOCATION");
-        pause();
+        mmu_error("Reading from invalid location @%x", location);
+        return 0;
     }
     return 0;
 }
