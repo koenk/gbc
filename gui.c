@@ -99,7 +99,7 @@ void gui_render_current_line(struct gb_state *gb_state) {
     u8 bgwin_tilemap_low = (gb_state->io_lcd_LCDC & (1<<4)) ? 1 : 0;
     u8 bgwin_tilemap_unsigned = bgwin_tilemap_low;
     u8 bgmap_high = (gb_state->io_lcd_LCDC & (1<<3)) ? 1 : 0;
-    u8 sprite_8x16 = (gb_state->io_lcd_LCDC & (1<<2)) ? 1 : 0;
+    u8 obj_8x16 = (gb_state->io_lcd_LCDC & (1<<2)) ? 1 : 0;
     u8 obj_enable = (gb_state->io_lcd_LCDC & (1<<1)) ? 1 : 0;
 
     u16 bgwin_tilemap_addr = bgwin_tilemap_low ? 0x8000 : 0x9000;
@@ -113,14 +113,15 @@ void gui_render_current_line(struct gb_state *gb_state) {
     u8 obj_palette1 = gb_state->io_lcd_OBP0;
     u8 obj_palette2 = gb_state->io_lcd_OBP1;
 
+    u8 obj_tile_height = obj_8x16 ? 16 : 8;
+
     /* OAM scan - gather (max 10) objects on this line in cache */
-    assert(!sprite_8x16);
     struct OAMentry *OAM = (struct OAMentry*)&gb_state->mem_OAM[0];
     struct OAMentry objs[10];
     int num_objs = 0;
     if (obj_enable)
         for (int i = 0; i < 40; i++)
-            if (y >= OAM[i].y - 16 && y < OAM[i].y - 16 + 8)
+            if (y >= OAM[i].y - 16 && y < OAM[i].y - 16 + obj_tile_height)
                 objs[num_objs++] = OAM[i];
 
 
@@ -160,10 +161,10 @@ void gui_render_current_line(struct gb_state *gb_state) {
             int obj_tileoff_x = x - (objs[i].x - 8),
                 obj_tileoff_y = y - (objs[i].y - 16);
 
-            if (obj_tileoff_x < 0 || obj_tileoff_x >= 8)
+            if (obj_tileoff_x < 0 || obj_tileoff_x >= obj_tile_height)
                 continue;
 
-            /* TODO: flip, 8x16, prio */
+            /* TODO: flip, prio */
 
             int obj_tileoff = obj_tileoff_x + obj_tileoff_y * 8;
             int shift = 7 - obj_tileoff % 8;
