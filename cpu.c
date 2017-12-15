@@ -184,7 +184,7 @@ static void cpu_handle_interrupts(struct gb_state *s) {
     /* Does NOT check for interupts enabled master. */
     u8 interrupts = s->interrupts_enable & s->interrupts_request;
 
-    printf("Executing interrupt %d.\n", interrupts);
+    /*printf("Executing interrupt %d.\n", interrupts);*/
 
     for (int i = 0; i < 5; i++) {
         if (interrupts & (1 << i)) {
@@ -401,7 +401,6 @@ int cpu_do_instruction(struct gb_state *s) {
     int op_cycles;
 
     if (s->interrupts_master_enabled && (s->interrupts_enable & s->interrupts_request)) {
-        printf("handle interrupts\n");
         cpu_handle_interrupts(s);
         return 0; /* temp? */
     }
