@@ -514,9 +514,37 @@ int cpu_do_instruction(struct gb_state *s) {
     } else if (M(op, 0x22, 0xff)) { /* LDI (HL), A */
         mmu_write(s, HL, A);
         HL++;
-#if 0
     } else if (M(op, 0x27, 0xff)) { /* DAA */
-#endif
+        /* When adding/subtracting two numbers in BCD form, this instructions
+         * brings the results back to BCD form too. In BCD form the decimals 0-9
+         * are encoded in a fixed number of bits (4). E.g., 0x93 actually means
+         * 93 decimal. Adding/subtracting such numbers takes them out of this
+         * form since they can results in values where each digit is >9.
+         * E.g., 0x9 + 0x1 = 0xA, but should be 0x10. The important thing to
+         * note here is that per 4 bits we 'skip' 6 values (0xA-0xF), and thus
+         * by adding 0x6 we get: 0xA + 0x6 = 0x10, the correct answer. The same
+         * works for the upper byte (add 0x60).
+         * So: If the lower byte is >9, we need to add 0x6.
+         * If the upper byte is >9, we need to add 0x60.
+         * Furthermore, if we carried the lower part (HF, 0x9+0x9=0x12) we
+         * should also add 0x6 (0x12+0x6=0x18).
+         * Similarly for the upper byte (CF, 0x90+0x90=0x120, +0x60=0x180).
+         *
+         * For subtractions (we know it was a subtraction by looking at the NF
+         * flag) we simiarly need to *subtract* 0x06/0x60/0x66 to again skip the
+         * unused 6 values in each byte. The GB does this by only looking at the
+         * NF and CF flags then.
+         */
+        s8 add = 0;
+        if ((!NF && (A & 0xf) > 0x9) || HF)
+            add |= 0x6;
+        if ((!NF && A > 0x99) || CF) {
+            add |= 0x60;
+            CF = 1;
+        }
+        A += NF ? -add : add;
+        ZF = A == 0;
+        HF = 0;
     } else if (M(op, 0x2a, 0xff)) { /* LDI A, (HL) */
         A = mmu_read(s, HL);
         HL++;
