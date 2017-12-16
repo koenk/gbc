@@ -808,8 +808,14 @@ int cpu_do_instruction(struct gb_state *s) {
         return 1;
     }
 
-    if (s->pc >= 0x8000 && s->pc < 0xff80) {
-        printf("PC not in ROM or HRAM: %.4x\n", s->pc);
+    if (s->pc >= 0x8000 && s->pc < 0xa000) {
+        printf("PC in VRAM: %.4x\n", s->pc);
+        return 1;
+    } else if (s->pc >= 0xa000 && s->pc < 0xc000) {
+        printf("PC in external RAM: %.4x\n", s->pc);
+        return 1;
+    } else if (s->pc >= 0xe000 && s->pc < 0xff80) {
+        printf("PC in ECHO/OAM/IO/unusable: %.4x\n", s->pc);
         return 1;
     }
 
