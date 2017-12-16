@@ -25,8 +25,8 @@ struct emu_state {
     char lcd_line_needs_rerender; /* Set at the end of every HBlank. */
     char lcd_screen_needs_rerender; /* Set at the beginning of every VBlank. */
     char dbg_break_next;
+    char dbg_print_disas;
     u16 dbg_breakpoint;
-
 };
 
 /* State of the cpu part of the emulation, not of the hardware. */

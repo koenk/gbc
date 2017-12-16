@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
+#include <getopt.h>
 
 /* Windows has no gettimeofday() (or sys/time.h for that matter). */
 #ifdef _MSC_VER
@@ -35,7 +36,8 @@ int read_file(char *filename, u8 **buf, size_t *size) {
 
     *buf = (u8 *)malloc(allocsize);
     if (*buf == NULL) {
-        printf("Error allocating mem for file (file=%s, size=%zu byte.", filename, allocsize);
+        printf("Error allocating mem for file (file=%s, size=%zu byte).",
+                filename, allocsize);
         fclose(fp);
         return 1;
     }
@@ -58,51 +60,151 @@ int save_file(char *filename, u8 *buf, size_t size) {
     return 0;
 }
 
-int main(int argc, char *argv[]) {
-    struct gb_state gb_state;
-    u8 *rom;
-    size_t romsize;
-    u8 *bios;
-    size_t bios_size;
+struct emu_args {
+    char *rom_filename;
+    char *bios_filename;
+    char *state_filename;
+    char break_at_start;
+    char print_disas;
+};
 
-    char *romname = "test.gb";
-    enum gb_type gb_type = GB_TYPE_GB;
-    if (argc > 3) {
-        printf("Usage: %s [rom] [state]\n", argv[0]);
-        exit(1);
+void print_usage(char *progname) {
+    printf("Usage: %s [option]... [rom]\n\n", progname);
+    printf("GameBoy emulator by koenk.\n\n");
+    printf("Options:\n");
+    printf(" -s, --break-start      Break into debugger before executing first "
+            "instruction.\n");
+    printf(" -d, --print-disas      Print every instruction before executing "
+            "it.\n");
+    printf(" -b, --bios=FILE        Use the specified bios (default is no "
+            "bios).\n");
+    printf(" -l, --load-state=FILE  Load the gamestaet from a file (makes ROM "
+            "optional).\n");
+}
+
+int parse_args(int argc, char **argv, struct emu_args *emu_args) {
+    emu_args->rom_filename = NULL;
+    emu_args->bios_filename = NULL;
+    emu_args->state_filename = NULL;
+    emu_args->break_at_start = 0;
+    emu_args->print_disas = 0;
+
+    if (argc == 1) {
+        print_usage(argv[0]);
+        return 1;
     }
 
-    if (argc >= 2)
-        romname = argv[1];
+    while (1) {
+        static struct option long_options[] = {
+            {"break-start",  no_argument,        0,  's'},
+            {"print-disas",  no_argument,        0,  'd'},
+            {"bios",         required_argument,  0,  'b'},
+            {"load-state",   required_argument,  0,  'l'},
+            {0, 0, 0, 0}
+        };
 
-    if (argc != 3) {
-        read_file(romname, &rom, &romsize);
-        read_file("bios.bin", &bios, &bios_size);
-        assert(bios_size == 256);
+        char c = getopt_long(argc, argv, "sdb:l:", long_options, NULL);
+
+        if (c == -1)
+            break;
+
+        switch (c) {
+            case 's':
+                emu_args->break_at_start = 1;
+                break;
+
+            case 'd':
+                emu_args->print_disas = 1;
+                break;
+
+            case 'b':
+                emu_args->bios_filename = optarg;
+                break;
+
+            case 'l':
+                emu_args->state_filename = optarg;
+                break;
+
+            default:
+                print_usage(argv[0]);
+                return 1;
+        }
+    }
+
+    if (optind < argc) {
+        /* The remainder are non-option arguments (ROM) */
+        if (argc - optind > 1) {
+            print_usage(argv[0]);
+            return 1;
+        }
+
+        emu_args->rom_filename = argv[optind];
+    }
+
+    if (!emu_args->rom_filename && !emu_args->state_filename) {
+        fprintf(stderr, "Must specify either ROM filename or state "
+                "filename.\n");
+        print_usage(argv[0]);
+        return 1;
+    }
+
+    return 0;
+}
+
+
+int main(int argc, char *argv[]) {
+    struct gb_state gb_state;
+
+    enum gb_type gb_type = GB_TYPE_GB;
+
+    struct emu_args emu_args;
+    if (parse_args(argc, argv, &emu_args))
+        exit(1);
+
+    if (emu_args.state_filename) {
+        printf("Loading savestate ...\n");
+        u8 *state_buf;
+        size_t state_buf_size;
+        if (read_file(emu_args.state_filename, &state_buf, &state_buf_size)) {
+            fprintf(stderr, "Error during reading of state file \"%s\".\n",
+                    emu_args.state_filename);
+            exit(1);
+        }
+        if (state_load(&gb_state, state_buf, state_buf_size)) {
+            fprintf(stderr, "Error during loading of state, aborting.\n");
+            exit(1);
+        }
+        print_rom_header_info(gb_state.mem_ROM);
+
+    } else if (emu_args.rom_filename) {
+        u8 *rom;
+        size_t rom_size;
+        printf("Loading ROM \"%s\"\n", emu_args.rom_filename);
+        if (read_file(emu_args.rom_filename, &rom, &rom_size)) {
+            fprintf(stderr, "Error during reading of ROM file \"%s\".\n",
+                    emu_args.rom_filename);
+            exit(1);
+        }
 
         print_rom_header_info(rom);
 
-        if (state_new_from_rom(&gb_state, rom, romsize, gb_type)) {
-            fprintf(stderr, "Error loading ROM %s, aborting...\n", romname);
+        if (state_new_from_rom(&gb_state, rom, rom_size, gb_type)) {
+            fprintf(stderr, "Error loading ROM \"%s\", aborting.\n",
+                    emu_args.rom_filename);
             exit(1);
         }
 
         cpu_reset_state(&gb_state);
+
+        if (emu_args.bios_filename) {
+            u8 *bios;
+            size_t bios_size;
+            read_file("bios.bin", &bios, &bios_size);
+            state_add_bios(&gb_state, bios, bios_size);
+        }
     } else {
-        printf("Loading savestate ...\n");
-        u8 *state_buf;
-        size_t state_buf_size;
-        char statefile[] = "koekje.gbstate"; // TODO
-        if (read_file(statefile, &state_buf, &state_buf_size)) {
-            fprintf(stderr, "Error during reading of state file %s\n",
-                    statefile);
-            exit(1);
-        }
-        if (state_load(&gb_state, state_buf, state_buf_size)) {
-            fprintf(stderr, "Error during loading of state, aborting...\n");
-            exit(1);
-        }
-        print_rom_header_info(gb_state.mem_ROM);
+        fprintf(stderr, "Neither state filename nor ROM filename given!\n");
+        exit(1);
     }
 
     init_emu_state(&gb_state);
@@ -113,6 +215,13 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    if (emu_args.break_at_start)
+        gb_state.emu_state->dbg_break_next = 1;
+
+    if (emu_args.print_disas)
+        gb_state.emu_state->dbg_print_disas = 1;
+
+
     printf("==========================\n");
     printf("=== Starting execution ===\n");
     printf("==========================\n\n");
@@ -122,13 +231,8 @@ int main(int argc, char *argv[]) {
     struct timeval starttime, endtime;
     gettimeofday(&starttime, NULL);
 
-#if 0
-    if (argc == 3)
-        gb_state->dbg_break_next = 1;
-#endif
-
     while (!ret && !gb_state.emu_state->quit) {
-        //disassemble(gb_state);
+        //disassemble(&gb_state);
 
         if (gb_state.emu_state->dbg_break_next ||
             gb_state.pc == gb_state.emu_state->dbg_breakpoint)
@@ -160,7 +264,7 @@ int main(int argc, char *argv[]) {
             char statefile[] = "koekje.gbstate"; // TODO
             save_file(statefile, state_buf, state_buf_size);
 
-            printf("State saved to \"%s\"\n", statefile);
+            printf("State saved to \"%s\".\n", statefile);
         }
 
     }
@@ -178,7 +282,7 @@ int main(int argc, char *argv[]) {
     double exectime = t_sec + (t_usec / 1000000.);
     double emulated_secs = instr / 4194304.;
 
-    printf("\nEmulated %f sec (%d instr) in %f sec WCT, %f%%\n", emulated_secs,
+    printf("\nEmulated %f sec (%d instr) in %f sec WCT, %f%%.\n", emulated_secs,
             instr, exectime,  emulated_secs / exectime * 100);
 
     #ifdef WIN32
