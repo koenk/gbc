@@ -85,37 +85,44 @@ void gui_render_current_line(struct gb_state *gb_state) {
      *
      */
 
-    /* TODO for all things: palette? */
-
     int y = gb_state->io_lcd_LY;
 
     if (y >= GUI_PX_HEIGHT) /* VBlank */
         return;
 
-    /* First render background tiles. */
-    u8 bg_scroll_x = gb_state->io_lcd_SCX;
-    u8 bg_scroll_y = gb_state->io_lcd_SCY;
 
+    u8 winmap_high       = (gb_state->io_lcd_LCDC & (1<<6)) ? 1 : 0;
+    u8 win_enable        = (gb_state->io_lcd_LCDC & (1<<5)) ? 1 : 0;
     u8 bgwin_tilemap_low = (gb_state->io_lcd_LCDC & (1<<4)) ? 1 : 0;
+    u8 bgmap_high        = (gb_state->io_lcd_LCDC & (1<<3)) ? 1 : 0;
+    u8 obj_8x16          = (gb_state->io_lcd_LCDC & (1<<2)) ? 1 : 0;
+    u8 obj_enable        = (gb_state->io_lcd_LCDC & (1<<1)) ? 1 : 0;
+    u8 bg_enable         = (gb_state->io_lcd_LCDC & (1<<0)) ? 1 : 0;
     u8 bgwin_tilemap_unsigned = bgwin_tilemap_low;
-    u8 bgmap_high = (gb_state->io_lcd_LCDC & (1<<3)) ? 1 : 0;
-    u8 obj_8x16 = (gb_state->io_lcd_LCDC & (1<<2)) ? 1 : 0;
-    u8 obj_enable = (gb_state->io_lcd_LCDC & (1<<1)) ? 1 : 0;
+
 
     u16 bgwin_tilemap_addr = bgwin_tilemap_low ? 0x8000 : 0x9000;
     u16 bgmap_addr = bgmap_high ? 0x9c00 : 0x9800;
+    u16 winmap_addr = winmap_high ? 0x9c00 : 0x9800;
 
     u8 *bgwin_tiledata = &gb_state->mem_VRAM[bgwin_tilemap_addr - 0x8000];
     u8 *obj_tiledata = &gb_state->mem_VRAM[0x8000 - 0x8000];
     u8 *bgmap = &gb_state->mem_VRAM[bgmap_addr - 0x8000];
+    u8 *winmap = &gb_state->mem_VRAM[winmap_addr - 0x8000];
 
-    u8 bg_palette = gb_state->io_lcd_BGP;
+    u8 bg_scroll_x = gb_state->io_lcd_SCX;
+    u8 bg_scroll_y = gb_state->io_lcd_SCY;
+    u8 win_pos_x = gb_state->io_lcd_WX;
+    u8 win_pos_y = gb_state->io_lcd_WY;
+
+    u8 bgwin_palette = gb_state->io_lcd_BGP;
     u8 obj_palette1 = gb_state->io_lcd_OBP0;
     u8 obj_palette2 = gb_state->io_lcd_OBP1;
 
     u8 obj_tile_height = obj_8x16 ? 16 : 8;
 
     /* OAM scan - gather (max 10) objects on this line in cache */
+    /* TODO: sort the objs so those with smaller x coord have higher prio */
     struct OAMentry *OAM = (struct OAMentry*)&gb_state->mem_OAM[0];
     struct OAMentry objs[10];
     int num_objs = 0;
@@ -129,33 +136,74 @@ void gui_render_current_line(struct gb_state *gb_state) {
 
 
     /* Draw all background pixels of this line. */
-    for (int x = 0; x < GUI_PX_WIDTH; x++) {
-        int bg_x = (x + bg_scroll_x) % 256,
-            bg_y = (y + bg_scroll_y) % 256;
-        int bg_tile_x = bg_x / 8,
-            bg_tile_y = bg_y / 8;
-        int bg_tileoff_x = bg_x % 8,
-            bg_tileoff_y = bg_y % 8;
+    if (bg_enable) {
+        for (int x = 0; x < GUI_PX_WIDTH; x++) {
+            int bg_x = (x + bg_scroll_x) % 256,
+                bg_y = (y + bg_scroll_y) % 256;
+            int bg_tile_x = bg_x / 8,
+                bg_tile_y = bg_y / 8;
+            int bg_tileoff_x = bg_x % 8,
+                bg_tileoff_y = bg_y % 8;
 
-        u8 bg_tile_idx_raw = bgmap[bg_tile_x + bg_tile_y * 32];
-        s16 bg_tile_idx = bgwin_tilemap_unsigned ? (s16)(u16)bg_tile_idx_raw :
-                                                   (s16)(s8)bg_tile_idx_raw;
+            u8 bg_tile_idx_raw = bgmap[bg_tile_x + bg_tile_y * 32];
+            s16 bg_tile_idx = bgwin_tilemap_unsigned ? (s16)(u16)bg_tile_idx_raw :
+                                                    (s16)(s8)bg_tile_idx_raw;
 
-        /* We have packed 2-bit color indices here, so the bits look like:
-         * (each bit denoted by the pixel index in tile)
-         * 01234567 01234567 89abcdef 89abcdef ...
-         * So for the 9th pixel (which is px 1,1) we need bytes 2+3 (9/8*2 [+1])
-         * and then shift both by 7 (8-9%8).
-         */
-        int bg_tileoff = bg_tileoff_x + bg_tileoff_y * 8;
-        int shift = 7 - bg_tileoff % 8;
-        u8 b1 = bgwin_tiledata[bg_tile_idx * 16 + bg_tileoff/8*2];
-        u8 b2 = bgwin_tiledata[bg_tile_idx * 16 + bg_tileoff/8*2 + 1];
-        u8 colidx = ((b1 >> shift) & 1) |
-                   (((b2 >> shift) & 1) << 1);
+            /* We have packed 2-bit color indices here, so the bits look like:
+            * (each bit denoted by the pixel index in tile)
+            * 01234567 01234567 89abcdef 89abcdef ...
+            * So for the 9th pixel (which is px 1,1) we need bytes 2+3 (9/8*2 [+1])
+            * and then shift both by 7 (8-9%8).
+            */
+            int bg_tileoff = bg_tileoff_x + bg_tileoff_y * 8;
+            int shift = 7 - bg_tileoff % 8;
+            u8 b1 = bgwin_tiledata[bg_tile_idx * 16 + bg_tileoff/8*2];
+            u8 b2 = bgwin_tiledata[bg_tile_idx * 16 + bg_tileoff/8*2 + 1];
+            u8 colidx = ((b1 >> shift) & 1) |
+                    (((b2 >> shift) & 1) << 1);
 
-        u8 col = palette_get(bg_palette, colidx);
-        pixbuf[x + y * GUI_PX_WIDTH] = colidx;
+            u8 col = palette_get(bgwin_palette, colidx);
+            pixbuf[x + y * GUI_PX_WIDTH] = colidx;
+        }
+    } else {
+        /* Background disabled - set all pixels to 0 */
+        for (int x = 0; x < GUI_PX_WIDTH; x++)
+            pixbuf[x + y * GUI_PX_WIDTH] = 0;
+    }
+
+    /* Draw the window for this line. */
+    if (win_enable) {
+        for (int x = 0; x < GUI_PX_WIDTH; x++) {
+            int win_x = x - win_pos_x + 7,
+                win_y = y - win_pos_y;
+            int tile_x = win_x / 8,
+                tile_y = win_y / 8;
+            int tileoff_x = win_x % 8,
+                tileoff_y = win_y % 8;
+
+            if (win_x < 0 || win_y < 0)
+                continue;
+
+            u8 tile_idx_raw = winmap[tile_x + tile_y * 32];
+            s16 tile_idx = bgwin_tilemap_unsigned ? (s16)(u16)tile_idx_raw :
+                                                    (s16)(s8)tile_idx_raw;
+
+            /* We have packed 2-bit color indices here, so the bits look like:
+            * (each bit denoted by the pixel index in tile)
+            * 01234567 01234567 89abcdef 89abcdef ...
+            * So for the 9th pixel (which is px 1,1) we need bytes 2+3 (9/8*2 [+1])
+            * and then shift both by 7 (8-9%8).
+            */
+            int tileoff = tileoff_x + tileoff_y * 8;
+            int shift = 7 - tileoff % 8;
+            u8 b1 = bgwin_tiledata[tile_idx * 16 + tileoff/8*2];
+            u8 b2 = bgwin_tiledata[tile_idx * 16 + tileoff/8*2 + 1];
+            u8 colidx = ((b1 >> shift) & 1) |
+                       (((b2 >> shift) & 1) << 1);
+
+            u8 col = palette_get(bgwin_palette, colidx);
+            pixbuf[x + y * GUI_PX_WIDTH] = colidx;
+        }
     }
 
     /* Draw any sprites (objects) on this line. */
@@ -167,7 +215,11 @@ void gui_render_current_line(struct gb_state *gb_state) {
             if (obj_tileoff_x < 0 || obj_tileoff_x >= 8)
                 continue;
 
-            /* TODO: flip, prio */
+            /* TODO: prio */
+            if (objs[i].flags & (1<<5)) /* Flip x */
+                obj_tileoff_x = 7 - obj_tileoff_x;
+            if (objs[i].flags & (1<<6)) /* Flip y */
+                obj_tileoff_y = obj_tile_height - 1 - obj_tileoff_y;
 
             int obj_tileoff = obj_tileoff_x + obj_tileoff_y * 8;
             int shift = 7 - obj_tileoff % 8;
