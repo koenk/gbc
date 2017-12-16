@@ -305,6 +305,11 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 MMU_DEBUG_W("VRAM Bank");
                 s->mem_bank_vram = value & 1;
                 break;
+            case 0xff50:
+                MMU_DEBUG_W("BIOS disable");
+                mmu_assert(s->in_bios);
+                s->in_bios = 0;
+                break;
             case 0xff56:
                 MMU_DEBUG_W("Infrared");
                 s->io_infrared = value;

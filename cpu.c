@@ -199,12 +199,6 @@ void cpu_reset_state(struct gb_state *s) {
     memset(s->mem_RTC, 0, 0x05);
 
     s->in_bios = 0;
-
-    /*
-    s->in_bios = 1;
-    s->pc = 0;
-    */
-
 }
 
 

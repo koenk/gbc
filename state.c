@@ -245,6 +245,11 @@ int state_save(struct gb_state *s, u8 **ret_state_buf,
     size_t extram_size = EXTRAM_BANKSIZE * s->mem_num_banks_extram;
     size_t vram_size = VRAM_BANKSIZE * s->mem_num_banks_vram;
 
+    if (s->in_bios) {
+        fprintf(stderr, "Cannot dump state while in bios\n");
+        return 1;
+    }
+
     size_t state_size = sizeof(u32) + sizeof(struct gb_state) +
         rom_size + ram_size + extram_size + vram_size;
     u8 *state_buf = malloc(state_size);
@@ -323,4 +328,12 @@ int state_load(struct gb_state *s, u8 *state_buf, size_t state_buf_size) {
     assert(state_buf_size == 0);
 
     return 0;
+}
+
+void state_add_bios(struct gb_state *s, u8 *bios, size_t bios_size) {
+    assert(bios_size == 256);
+    s->bios = malloc(bios_size);
+    memcpy(s->bios, bios, bios_size);
+    s->in_bios = 1;
+    s->pc = 0;
 }

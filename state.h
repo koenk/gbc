@@ -10,5 +10,6 @@ void init_emu_state(struct gb_state *s);
 int state_save(struct gb_state *s, u8 **ret_state_buf,
         size_t *ret_state_size);
 int state_load(struct gb_state *s, u8 *state_buf, size_t state_buf_size);
+void state_add_bios(struct gb_state *s, u8 *bios, size_t bios_size);
 
 #endif
