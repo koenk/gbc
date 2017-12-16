@@ -64,6 +64,7 @@ struct emu_args {
     char *rom_filename;
     char *bios_filename;
     char *state_filename;
+    char *save_filename;
     char break_at_start;
     char print_disas;
 };
@@ -100,10 +101,11 @@ int parse_args(int argc, char **argv, struct emu_args *emu_args) {
             {"print-disas",  no_argument,        0,  'd'},
             {"bios",         required_argument,  0,  'b'},
             {"load-state",   required_argument,  0,  'l'},
+            {"load-save",    required_argument,  0,  'e'},
             {0, 0, 0, 0}
         };
 
-        char c = getopt_long(argc, argv, "sdb:l:", long_options, NULL);
+        char c = getopt_long(argc, argv, "sdb:l:e:", long_options, NULL);
 
         if (c == -1)
             break;
@@ -123,6 +125,10 @@ int parse_args(int argc, char **argv, struct emu_args *emu_args) {
 
             case 'l':
                 emu_args->state_filename = optarg;
+                break;
+
+            case 'e':
+                emu_args->save_filename = optarg;
                 break;
 
             default:
@@ -162,7 +168,7 @@ int main(int argc, char *argv[]) {
         exit(1);
 
     if (emu_args.state_filename) {
-        printf("Loading savestate ...\n");
+        printf("Loading savestate from \"%s\" ...\n", emu_args.state_filename);
         u8 *state_buf;
         size_t state_buf_size;
         if (read_file(emu_args.state_filename, &state_buf, &state_buf_size)) {
@@ -201,6 +207,22 @@ int main(int argc, char *argv[]) {
             size_t bios_size;
             read_file("bios.bin", &bios, &bios_size);
             state_add_bios(&gb_state, bios, bios_size);
+        }
+
+        if (emu_args.save_filename) {
+            printf("Loading save from \"%s\" ...\n", emu_args.save_filename);
+            u8 *state_buf;
+            size_t state_buf_size;
+            if (read_file(emu_args.save_filename, &state_buf, &state_buf_size)) {
+                fprintf(stderr, "Error during reading of save file \"%s\".\n",
+                        emu_args.save_filename);
+                exit(1);
+            }
+            if (state_load_extram(&gb_state, state_buf, state_buf_size)) {
+                fprintf(stderr, "Error during loading of save, aborting.\n");
+                exit(1);
+            }
+
         }
     } else {
         fprintf(stderr, "Neither state filename nor ROM filename given!\n");
@@ -266,6 +288,17 @@ int main(int argc, char *argv[]) {
             save_file(statefile, state_buf, state_buf_size);
 
             printf("State saved to \"%s\".\n", statefile);
+        }
+
+        if (gb_state.emu_state->flush_extram) {
+            gb_state.emu_state->flush_extram = 0;
+            u8 *state_buf;
+            size_t state_buf_size;
+            state_save_extram(&gb_state, &state_buf, &state_buf_size);
+            char statefile[] = "koekje.gbsav"; // TODO
+            save_file(statefile, state_buf, state_buf_size);
+
+            printf("Ext RAM saved to \"%s\".\n", statefile);
         }
 
     }

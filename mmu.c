@@ -37,8 +37,12 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
     switch (location & 0xf000) {
     case 0x0000: /* 0000 - 1FFF */
     case 0x1000:
-        MMU_DEBUG_W("RAM+Timer enable");
+        MMU_DEBUG_W("EXTRAM(+RTC) enable");
         /* Dummy, we always have those enabled. */
+        /* Turning off the RAM could indicate that battery-backed data is done
+         * being written and could be flushed to disk. */
+        if (value == 0)
+            s->emu_state->flush_extram = 1;
         break;
     case 0x2000: /* 2000 - 3FFF */
     case 0x3000:

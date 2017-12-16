@@ -24,6 +24,7 @@ struct emu_state {
     char make_savestate;
     char lcd_line_needs_rerender; /* Set at the end of every HBlank. */
     char lcd_screen_needs_rerender; /* Set at the beginning of every VBlank. */
+    char flush_extram; /* Flush battery-backed EXT_RAM when it's disabled. */
     char dbg_break_next;
     char dbg_print_disas;
     u16 dbg_breakpoint;

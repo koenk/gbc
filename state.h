@@ -14,4 +14,9 @@ int state_save(struct gb_state *s, u8 **ret_state_buf,
         size_t *ret_state_size);
 int state_load(struct gb_state *s, u8 *state_buf, size_t state_buf_size);
 
+/* Store/load dump for external (battery backed) RAM. */
+int state_save_extram(struct gb_state *s, u8 **ret_state_buf,
+        size_t *ret_state_size);
+int state_load_extram(struct gb_state *s, u8 *state_buf, size_t state_buf_size);
+
 #endif

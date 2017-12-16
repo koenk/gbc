@@ -221,6 +221,10 @@ int state_new_from_rom(struct gb_state *s, u8 *rom, size_t rom_size,
     return 0;
 }
 
+/*
+ * Adds BIOS to the state - should be called only after creating fresh state
+ * from rom. Overwrites some state (such as PC) to facilitate running of BIOS.
+ */
 void state_add_bios(struct gb_state *s, u8 *bios, size_t bios_size) {
     assert(bios_size == 256);
     s->bios = malloc(bios_size);
@@ -237,7 +241,11 @@ void init_emu_state(struct gb_state *s) {
     s->emu_state = calloc(1, sizeof(struct emu_state));
     s->emu_state->quit = 0;
     s->emu_state->make_savestate = 0;
+    s->emu_state->lcd_line_needs_rerender = 0;
+    s->emu_state->lcd_screen_needs_rerender = 0;
+    s->emu_state->flush_extram = 0;
     s->emu_state->dbg_break_next = 0;
+    s->emu_state->dbg_print_disas = 0;
     s->emu_state->dbg_breakpoint = 0xffff;
 }
 
@@ -338,3 +346,23 @@ int state_load(struct gb_state *s, u8 *state_buf, size_t state_buf_size) {
     return 0;
 }
 
+
+int state_save_extram(struct gb_state *s, u8 **ret_state_buf,
+        size_t *ret_state_size) {
+    size_t extramsize = s->mem_num_banks_extram * EXTRAM_BANKSIZE;
+    *ret_state_buf = malloc(extramsize);
+    memcpy(*ret_state_buf, s->mem_EXTRAM, extramsize);
+    *ret_state_size = extramsize;
+    return 0;
+}
+
+int state_load_extram(struct gb_state *s, u8 *state_buf,
+        size_t state_buf_size) {
+    size_t extramsize = s->mem_num_banks_extram * EXTRAM_BANKSIZE;
+    if (state_buf_size != extramsize)
+        err("Mismatch in size, save has size %zu, emulator %zu bytes",
+                state_buf_size, extramsize);
+
+    memcpy(s->mem_EXTRAM, state_buf, state_buf_size);
+    return 0;
+}
