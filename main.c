@@ -232,7 +232,8 @@ int main(int argc, char *argv[]) {
     gettimeofday(&starttime, NULL);
 
     while (!ret && !gb_state.emu_state->quit) {
-        //disassemble(&gb_state);
+        if (gb_state.emu_state->dbg_print_disas)
+            disassemble(&gb_state);
 
         if (gb_state.emu_state->dbg_break_next ||
             gb_state.pc == gb_state.emu_state->dbg_breakpoint)

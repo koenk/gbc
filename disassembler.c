@@ -129,7 +129,10 @@ int disassemble_pc(struct gb_state* s, u16 pc) {
     u8 temp1, temp2;
     s8 stemp;
 
-    printf("(%.4x)  ", oldpc);
+    if (oldpc >= 0x4000 && oldpc < 0x8000)
+        printf("(%x:%.4x)  ", s->mem_bank_rom, oldpc); /* TODO: MBC1 upper bits */
+    else
+        printf("(%.4x)  ", oldpc);
 
     while (*mnem) {
         if (*mnem == '%') {
