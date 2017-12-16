@@ -221,6 +221,14 @@ int state_new_from_rom(struct gb_state *s, u8 *rom, size_t rom_size,
     return 0;
 }
 
+void state_add_bios(struct gb_state *s, u8 *bios, size_t bios_size) {
+    assert(bios_size == 256);
+    s->bios = malloc(bios_size);
+    memcpy(s->bios, bios, bios_size);
+    s->in_bios = 1;
+    s->pc = 0;
+}
+
 /*
  * Initialize the emulator state of the gameboy. This state belongs to the
  * emulator, not the state of the emulated hardware.
@@ -330,10 +338,3 @@ int state_load(struct gb_state *s, u8 *state_buf, size_t state_buf_size) {
     return 0;
 }
 
-void state_add_bios(struct gb_state *s, u8 *bios, size_t bios_size) {
-    assert(bios_size == 256);
-    s->bios = malloc(bios_size);
-    memcpy(s->bios, bios, bios_size);
-    s->in_bios = 1;
-    s->pc = 0;
-}
