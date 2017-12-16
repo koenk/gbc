@@ -517,12 +517,51 @@ u8 mmu_read(struct gb_state *s, u16 location) {
             case 0xff12:
                 MMU_DEBUG_R("Sound channel 1 envelope");
                 return s->io_sound_channel1_envelope;
+            case 0xff13:
+                MMU_DEBUG_R("Sound channel 1 freq lo");
+                return s->io_sound_channel1_freq_lo;
+            case 0xff14:
+                MMU_DEBUG_R("Sound channel 1 freq hi");
+                return s->io_sound_channel1_freq_hi;
+            case 0xff16:
+                MMU_DEBUG_R("Sound channel 2 length/pattern");
+                return s->io_sound_channel2_length_pattern;
+            case 0xff17:
+                MMU_DEBUG_R("Sound channel 2 envelope");
+                return s->io_sound_channel2_envelope;
+            case 0xff18:
+                MMU_DEBUG_R("Sound channel 2 freq lo");
+                return s->io_sound_channel2_freq_lo;
+            case 0xff19:
+                MMU_DEBUG_R("Sound channel 2 freq hi");
+                return s->io_sound_channel2_freq_hi;
             case 0xff1a:
                 MMU_DEBUG_R("Sound channel 3 enabled");
                 return s->io_sound_channel3_enabled;
+            case 0xff1b:
+                MMU_DEBUG_R("Sound channel 3 length");
+                return s->io_sound_channel3_length;
             case 0xff1c:
                 MMU_DEBUG_R("Sound channel 3 level");
                 return s->io_sound_channel3_level;
+            case 0xff1d:
+                MMU_DEBUG_R("Sound channel 3 freq lo");
+                return s->io_sound_channel3_freq_lo;
+            case 0xff1e:
+                MMU_DEBUG_R("Sound channel 3 freq hi");
+                return s->io_sound_channel3_freq_hi;
+            case 0xff20:
+                MMU_DEBUG_R("Sound channel 4 length");
+                return s->io_sound_channel4_length;
+            case 0xff21:
+                MMU_DEBUG_R("Sound channel 4 envelope");
+                return s->io_sound_channel4_envelope;
+            case 0xff22:
+                MMU_DEBUG_R("Sound channel 4 polynomial counter");
+                return s->io_sound_channel4_poly;
+            case 0xff23:
+                MMU_DEBUG_R("Sound channel 4 Counter/consecutive; Inital");
+                return s->io_sound_channel4_consec_initial;
             case 0xff24:
                 MMU_DEBUG_R("Sound channel control");
                 return s->io_sound_terminal_control;
