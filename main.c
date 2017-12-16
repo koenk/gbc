@@ -133,24 +133,6 @@ struct gb_state *new_gb_state(u8 *bios, u8 *rom, size_t rom_inpsize,
     s->bios = bios;
     s->gb_type = gb_type;
 
-    /* Initialize lookup tables for accessing regs */
-    s->reg8_lut[0] = &s->reg8.B;
-    s->reg8_lut[1] = &s->reg8.C;
-    s->reg8_lut[2] = &s->reg8.D;
-    s->reg8_lut[3] = &s->reg8.E;
-    s->reg8_lut[4] = &s->reg8.H;
-    s->reg8_lut[5] = &s->reg8.L;
-    s->reg8_lut[6] = NULL;
-    s->reg8_lut[7] = &s->reg8.A;
-    s->reg16_lut[0] = &s->reg16.BC;
-    s->reg16_lut[1] = &s->reg16.DE;
-    s->reg16_lut[2] = &s->reg16.HL;
-    s->reg16_lut[3] = &s->sp;
-    s->reg16s_lut[0] = &s->reg16.BC;
-    s->reg16s_lut[1] = &s->reg16.DE;
-    s->reg16s_lut[2] = &s->reg16.HL;
-    s->reg16s_lut[3] = &s->reg16.AF;
-
     switch (cart_type) {
     case 0x00:                                              break;
     case 0x01: mbc = 1;                                     break;
@@ -241,13 +223,15 @@ struct gb_state *new_gb_state(u8 *bios, u8 *rom, size_t rom_inpsize,
     memset(s->mem_ROM, 0, ROM_BANKSIZE * rom_banks);
     memcpy(s->mem_ROM, rom, rom_inpsize);
 
-    s->dbg_break_next = 0;
-    s->dbg_breakpoint = 0xffff;
-
-    s->quit = 0;
-    s->make_savestate = 0;
-
     return s;
+}
+
+void init_emu_state(struct gb_state *s) {
+    s->emu_state = calloc(1, sizeof(struct emu_state));
+    s->emu_state->quit = 0;
+    s->emu_state->make_savestate = 0;
+    s->emu_state->dbg_break_next = 0;
+    s->emu_state->dbg_breakpoint = 0xffff;
 }
 
 int state_save(char *filename, struct gb_state *s) {
@@ -299,22 +283,6 @@ int state_load(char *filename, struct gb_state *s) {
     fread(s->mem_VRAM, VRAM_BANKSIZE * s->mem_num_banks_vram, 1, fp);
     fclose(fp);
 
-    s->reg8_lut[0] = &s->reg8.B;
-    s->reg8_lut[1] = &s->reg8.C;
-    s->reg8_lut[2] = &s->reg8.D;
-    s->reg8_lut[3] = &s->reg8.E;
-    s->reg8_lut[4] = &s->reg8.H;
-    s->reg8_lut[5] = &s->reg8.L;
-    s->reg8_lut[6] = NULL;
-    s->reg8_lut[7] = &s->reg8.A;
-    s->reg16_lut[0] = &s->reg16.BC;
-    s->reg16_lut[1] = &s->reg16.DE;
-    s->reg16_lut[2] = &s->reg16.HL;
-    s->reg16_lut[3] = &s->sp;
-    s->reg16s_lut[0] = &s->reg16.BC;
-    s->reg16s_lut[1] = &s->reg16.DE;
-    s->reg16s_lut[2] = &s->reg16.HL;
-    s->reg16s_lut[3] = &s->reg16.AF;
     return 0;
 }
 
@@ -357,6 +325,9 @@ int main(int argc, char *argv[]) {
         print_rom_header_info(gb_state->mem_ROM);
     }
 
+    init_emu_state(gb_state);
+    cpu_init_emu_cpu_state(gb_state);
+
     if (gui_init()) {
         printf("Couldn't initialize LCD, exiting...\n");
         return 1;
@@ -376,11 +347,11 @@ int main(int argc, char *argv[]) {
         gb_state->dbg_break_next = 1;
 #endif
 
-    while (!ret && !gb_state->quit) {
+    while (!ret && !gb_state->emu_state->quit) {
         //disassemble(gb_state);
 
-        if (gb_state->dbg_break_next ||
-            gb_state->pc == gb_state->dbg_breakpoint)
+        if (gb_state->emu_state->dbg_break_next ||
+            gb_state->pc == gb_state->emu_state->dbg_breakpoint)
             if (dbg_run_debugger(gb_state))
                 break;
 
@@ -400,8 +371,8 @@ int main(int argc, char *argv[]) {
                 break;
         }
 
-        if (gb_state->make_savestate) {
-            gb_state->make_savestate = 0;
+        if (gb_state->emu_state->make_savestate) {
+            gb_state->emu_state->make_savestate = 0;
             state_save("koekje.gbstate", gb_state);
             printf("State saved to \"%s\"\n", "koekje.gbstate");
         }

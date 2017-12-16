@@ -34,9 +34,9 @@ int dbg_run_debugger(struct gb_state *s) {
 
         if (strlen(input) == 0) {
             if (last_exec_cmd == 's')
-                s->dbg_break_next = 1;
+                s->emu_state->dbg_break_next = 1;
             else if (last_exec_cmd == 'c')
-                s->dbg_break_next = 0;
+                s->emu_state->dbg_break_next = 0;
             else
                 continue;
             return 0;
@@ -62,23 +62,23 @@ int dbg_run_debugger(struct gb_state *s) {
             break;
         }
         case 's': /* Step - execute one instruction */
-            s->dbg_break_next = 1;
+            s->emu_state->dbg_break_next = 1;
             last_exec_cmd = 's';
             return 0;
 
         case 'c': /* Continue - continue execution until breakpoint */
-            s->dbg_break_next = 0;
+            s->emu_state->dbg_break_next = 0;
             last_exec_cmd = 'c';
             return 0;
 
         case 'b': /* Breakpoint - place new breakpoint */
         {
             u16 loc = strtol(&input[2], NULL, 16);
-            s->dbg_breakpoint = loc;
+            s->emu_state->dbg_breakpoint = loc;
             break;
         }
         case 'q': /* Quit */
-            s->quit = 1;
+            s->emu_state->quit = 1;
             return 1;
 
         case 'h': /* Help */

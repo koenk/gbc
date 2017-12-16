@@ -7,10 +7,11 @@
  * https://realboyemulator.wordpress.com/2013/01/03/a-look-at-the-game-boy-bootstrap-let-the-fun-begin/
  */
 
-#include "cpu.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
+#include "cpu.h"
 #include "mmu.h"
 
 static void cpu_handle_interrupts(struct gb_state *state);
@@ -71,8 +72,35 @@ static int cycles_per_instruction_cb[] = {
      8,  8,  8,  8,  8,  8, 16,  8,  8,  8,  8,  8,  8,  8, 16,  8, /* f */
 };
 
-void cpu_reset_state(struct gb_state* s)
-{
+struct emu_cpu_state {
+    /* Lookup tables for the reg-index encoded in instructions to ptr to reg. */
+    u8 *reg8_lut[9];
+    u16 *reg16_lut[4];
+    u16 *reg16s_lut[4];
+};
+
+void cpu_init_emu_cpu_state(struct gb_state *s) {
+    s->emu_cpu_state = calloc(1, sizeof(struct emu_cpu_state));
+    s->emu_cpu_state->reg8_lut[0] = &s->reg8.B;
+    s->emu_cpu_state->reg8_lut[1] = &s->reg8.C;
+    s->emu_cpu_state->reg8_lut[2] = &s->reg8.D;
+    s->emu_cpu_state->reg8_lut[3] = &s->reg8.E;
+    s->emu_cpu_state->reg8_lut[4] = &s->reg8.H;
+    s->emu_cpu_state->reg8_lut[5] = &s->reg8.L;
+    s->emu_cpu_state->reg8_lut[6] = NULL;
+    s->emu_cpu_state->reg8_lut[7] = &s->reg8.A;
+    s->emu_cpu_state->reg16_lut[0] = &s->reg16.BC;
+    s->emu_cpu_state->reg16_lut[1] = &s->reg16.DE;
+    s->emu_cpu_state->reg16_lut[2] = &s->reg16.HL;
+    s->emu_cpu_state->reg16_lut[3] = &s->sp;
+    s->emu_cpu_state->reg16s_lut[0] = &s->reg16.BC;
+    s->emu_cpu_state->reg16s_lut[1] = &s->reg16.DE;
+    s->emu_cpu_state->reg16s_lut[2] = &s->reg16.HL;
+    s->emu_cpu_state->reg16s_lut[3] = &s->reg16.AF;
+}
+
+/* Resets the CPU state (registers and such) to the state at bootup. */
+void cpu_reset_state(struct gb_state *s) {
     s->freq = GB_FREQ;
     s->cycles = 0;
 
@@ -286,9 +314,9 @@ static void cpu_handle_timer(struct gb_state *s, int op_cycles) {
 #define mem(loc) (mmu_read(s, loc))
 #define IMM8  (mmu_read(s, s->pc))
 #define IMM16 (mmu_read(s, s->pc) | (mmu_read(s, s->pc + 1) << 8))
-#define REG8(bitpos) s->reg8_lut[(op >> bitpos) & 7]
-#define REG16(bitpos) s->reg16_lut[((op >> bitpos) & 3)]
-#define REG16S(bitpos) s->reg16s_lut[((op >> bitpos) & 3)]
+#define REG8(bitpos) s->emu_cpu_state->reg8_lut[(op >> bitpos) & 7]
+#define REG16(bitpos) s->emu_cpu_state->reg16_lut[((op >> bitpos) & 3)]
+#define REG16S(bitpos) s->emu_cpu_state->reg16s_lut[((op >> bitpos) & 3)]
 #define FLAG(bitpos) ((op >> bitpos) & 3)
 
 static int do_cb_instruction(struct gb_state *s) {

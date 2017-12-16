@@ -108,8 +108,7 @@ static GBOPCODE cbOpcodes[] = {
 };
 
 
-int disassemble_pc(struct gb_state* s, u16 pc)
-{
+int disassemble_pc(struct gb_state* s, u16 pc) {
     u16 oldpc = pc;
     u8 opcode = mmu_read(s, pc++);
     GBOPCODE *op = NULL;
@@ -194,13 +193,11 @@ int disassemble_pc(struct gb_state* s, u16 pc)
     return pc - oldpc;
 }
 
-void disassemble(struct gb_state* state)
-{
+void disassemble(struct gb_state* state) {
     disassemble_pc(state, state->pc);
 }
 
-void disassemble_bootblock(struct gb_state *state)
-{
+void disassemble_bootblock(struct gb_state *state) {
     printf("Disassembling bootblock @ 0x100:\n\n");
 
     u16 pc = 0x100;

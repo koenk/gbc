@@ -14,23 +14,21 @@ typedef int16_t s16;
 typedef int32_t s32;
 typedef int64_t s64;
 
-#define REG16_BC 0
-#define REG16_DE 2
-#define REG16_HL 4
-#define REG16_AF 6
-#define REG_B 1
-#define REG_C 0
-#define REG_D 3
-#define REG_E 2
-#define REG_H 5
-#define REG_L 4
-#define REG_A 7
-#define REG_F 6
-
 #define FLAG_C 0x10
 #define FLAG_H 0x20
 #define FLAG_N 0x40
 #define FLAG_Z 0x80
+
+/* State of the emulator itself, not of the hardware. */
+struct emu_state {
+    char quit;
+    char make_savestate;
+    char dbg_break_next;
+    u16 dbg_breakpoint;
+};
+
+/* State of the cpu part of the emulation, not of the hardware. */
+struct emu_cpu_state;
 
 enum gb_type {
     GB_TYPE_GB,
@@ -68,10 +66,6 @@ struct gb_state
         } flags;
     };
 
-    /* Lookup tables for the reg-index encoded in instructions to ptr to reg. */
-    u8 *reg8_lut[9];
-    u16 *reg16_lut[4];
-    u16 *reg16s_lut[4];
 
     u16 sp;
     u16 pc;
@@ -167,10 +161,8 @@ struct gb_state
     char has_battery;
     char has_rtc;
 
-    char quit;
-    char make_savestate;
-    char dbg_break_next;
-    u16 dbg_breakpoint;
+    struct emu_state *emu_state;
+    struct emu_cpu_state *emu_cpu_state;
 };
 
 
