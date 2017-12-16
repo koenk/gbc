@@ -19,6 +19,7 @@
  *  $FFFF	    Interrupt Enable Flag
  */
 
+#define ROMHDR_TITLE        0x134
 #define ROMHDR_CARTTYPE     0x147
 #define ROMHDR_ROMSIZE      0x148
 #define ROMHDR_EXTRAMSIZE   0x149

@@ -22,8 +22,11 @@ typedef int64_t s64;
 struct emu_state {
     char quit;
     char make_savestate;
+    char lcd_line_needs_rerender; /* Set at the end of every HBlank. */
+    char lcd_screen_needs_rerender; /* Set at the beginning of every VBlank. */
     char dbg_break_next;
     u16 dbg_breakpoint;
+
 };
 
 /* State of the cpu part of the emulation, not of the hardware. */
@@ -90,9 +93,6 @@ struct gb_state
     u8 io_lcd_STAT; // LCD Status. 0-1 = mode, 2 = LYC==LY, 3 = M0 interrupt, 4 = M1 inter, 5 = M2 inter, 6 = LY=LYC inter
     u8 io_lcd_LY;   // LCD Y line
     u8 io_lcd_LYC;  // LCD Y line compare
-
-    u8 lcd_line_needs_rerender; // Set at the end of every HBlank.
-    u8 lcd_screen_needs_rerender; // Set at the beginning of every VBlank.
 
     u8 io_timer_DIV;
     u32 io_timer_DIV_cycles;

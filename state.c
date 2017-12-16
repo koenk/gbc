@@ -6,8 +6,14 @@
 #include "state.h"
 #include "mmu.h"
 
+#define err(fmt, ...) \
+    do { \
+        fprintf(stderr, "[State] " fmt "\n", ##__VA_ARGS__); \
+        return 1; \
+    } while (0)
+
 void print_rom_header_info(u8* rom) {
-    printf("Title: %s\n", &rom[0x134]);
+    printf("Title: %s\n", &rom[ROMHDR_TITLE]);
 
     printf("Cart type: ");
     u8 cart_type = rom[ROMHDR_CARTTYPE];
@@ -69,37 +75,31 @@ void print_rom_header_info(u8* rom) {
     }
 }
 
+struct rominfo {
+    int mbc;
+    char has_extram:1;
+    char has_battery:1;
+    char has_rtc:1;
+    int num_rom_banks;
+    int num_ram_banks;
+    int num_extram_banks;
+    int num_vram_banks;
+};
 
-void read_file(char *filename, u8 **src, size_t *size) {
-    FILE *fp;
 
-    fp = fopen(filename, "rb");
-    if (!fp) {
-        fprintf(stderr, "Failed to load file (\"%s\").\n", filename);
-        #ifdef _MSC_VER
-            __debugbreak();
-        #endif
-        exit(1);
-    }
+int rom_get_info(u8 *rom, size_t rom_size, enum gb_type rom_gb_type,
+        struct rominfo *ret_rominfo) {
 
-    /* Get the file size */
-    fseek(fp, 0L, SEEK_END);
-    long allocsize = ftell(fp);
-    rewind(fp);
+    /* Cart info from header */
+    if (ROMHDR_CARTTYPE >= rom_size ||
+            ROMHDR_ROMSIZE >= rom_size ||
+            ROMHDR_EXTRAMSIZE >= rom_size)
+        err("Given ROM too small to read header fields (%zu)", rom_size);
 
-    *src = (u8 *)malloc(allocsize * sizeof(u8));
-    if (*src == NULL) {
-        printf("Error while allocating memory for reading file.");
-        fclose(fp);
-        return;
-    }
-    *size = fread(*src, sizeof(u8), allocsize, fp);
-    fclose(fp);
-}
+    u8 hdr_cart_type = rom[ROMHDR_CARTTYPE];
+    u8 hdr_rom_size = rom[ROMHDR_ROMSIZE];
+    u8 hdr_extram_size = rom[ROMHDR_EXTRAMSIZE];
 
-struct gb_state *new_gb_state(u8 *bios, u8 *rom, size_t rom_inpsize,
-        enum gb_type gb_type) {
-    /* Cart features */
     int mbc = 0; /* Memory Bank Controller */
     int extram = 0;
     int battery = 0;
@@ -109,20 +109,7 @@ struct gb_state *new_gb_state(u8 *bios, u8 *rom, size_t rom_inpsize,
     int ram_banks = 0;
     int vram_banks = 0;
 
-    /* Cart info from header */
-    u8 cart_type = rom[ROMHDR_CARTTYPE];
-    u8 rom_size = rom[ROMHDR_ROMSIZE];
-    u8 extram_size = rom[ROMHDR_EXTRAMSIZE];
-
-    struct gb_state *s = calloc(1, sizeof(struct gb_state));
-    assert(s);
-
-    assert(gb_type == GB_TYPE_GB);
-
-    s->bios = bios;
-    s->gb_type = gb_type;
-
-    switch (cart_type) {
+    switch (hdr_cart_type) {
     case 0x00:                                              break;
     case 0x01: mbc = 1;                                     break;
     case 0x02: mbc = 1; extram = 1;                         break;
@@ -152,10 +139,10 @@ struct gb_state *new_gb_state(u8 *bios, u8 *rom, size_t rom_inpsize,
     /* Bandai TAMA5 not supported */
     /* HuCn not supported */
     default:
-        assert(!"Unsupported cartridge");
+        err("Unsupported cartridge type: %x", hdr_cart_type);
     }
 
-    switch (rom_size) {
+    switch (hdr_rom_size) {
     case 0x00: rom_banks = 2;   break; /* 16K */
     case 0x01: rom_banks = 4;   break; /* 64K */
     case 0x02: rom_banks = 8;   break; /* 128K */
@@ -168,53 +155,76 @@ struct gb_state *new_gb_state(u8 *bios, u8 *rom, size_t rom_inpsize,
     case 0x53: rom_banks = 80;  break; /* 1.2M */
     case 0x54: rom_banks = 96;  break; /* 1.5M */
     default:
-        assert(!"Unsupported ROM size");
+        err("Unsupported ROM size: %x", hdr_rom_size);
     }
 
-    switch (extram_size) {
+    switch (hdr_extram_size) {
     case 0x00: extram_banks = 0; break; /* None */
     case 0x01: extram_banks = 1; break; /* 2K */
     case 0x02: extram_banks = 1; break; /* 8K */
     case 0x03: extram_banks = 4; break; /* 32K */
     default:
-        assert(!"Unsupported Ext RAM size");
+        err("Unsupported EXT_RAM size: %x", hdr_extram_size);
     }
 
     assert((extram == 0 && extram_banks == 0) ||
            (extram == 1 && extram_banks > 0));
 
-    /* Currently unsupported features. */
-    //assert(mbc == 0 || mbc == 1);
-    //assert(extram == 0);
-    //assert(battery == 0);
-    //assert(rtc == 0);
-
-    if (gb_type == GB_TYPE_GB) {
+    if (rom_gb_type == GB_TYPE_GB) {
         ram_banks = 2;
         vram_banks = 1;
+    } else {
+        err("Unsupported GB type: %d", rom_gb_type);
     }
 
-    s->mbc = mbc;
-    s->has_extram = extram;
-    s->has_battery = battery;
-    s->has_rtc = rtc;
+    ret_rominfo->mbc = mbc;
+    ret_rominfo->has_extram = extram;
+    ret_rominfo->has_battery = battery;
+    ret_rominfo->has_rtc = rtc;
+    ret_rominfo->num_rom_banks = rom_banks;
+    ret_rominfo->num_ram_banks = ram_banks;
+    ret_rominfo->num_extram_banks = extram_banks;
+    ret_rominfo->num_vram_banks = vram_banks;
 
-    s->mem_num_banks_rom = rom_banks;
-    s->mem_num_banks_ram = ram_banks;
-    s->mem_num_banks_extram = extram_banks;
-    s->mem_num_banks_vram = vram_banks;
-
-    s->mem_ROM = malloc(ROM_BANKSIZE * rom_banks);
-    s->mem_RAM = malloc(RAM_BANKSIZE * ram_banks);
-    s->mem_EXTRAM = malloc(EXTRAM_BANKSIZE * extram_banks);
-    s->mem_VRAM = malloc(VRAM_BANKSIZE * vram_banks);
-
-    memset(s->mem_ROM, 0, ROM_BANKSIZE * rom_banks);
-    memcpy(s->mem_ROM, rom, rom_inpsize);
-
-    return s;
+    return 0;
 }
 
+int state_new_from_rom(struct gb_state *s, u8 *rom, size_t rom_size,
+    enum gb_type rom_gb_type) {
+
+    if (rom_gb_type != GB_TYPE_GB)
+        err("Unsupported GB type: %d", rom_gb_type);
+    s->gb_type = rom_gb_type;
+
+    struct rominfo rominfo;
+    if (rom_get_info(rom, rom_size, rom_gb_type, &rominfo))
+        err("Error retrieving rom info");
+
+    s->mbc = rominfo.mbc;
+    s->has_extram = rominfo.has_extram;
+    s->has_battery = rominfo.has_battery;
+    s->has_rtc = rominfo.has_rtc;
+
+    s->mem_num_banks_rom = rominfo.num_rom_banks;
+    s->mem_num_banks_ram = rominfo.num_ram_banks;
+    s->mem_num_banks_extram = rominfo.num_extram_banks;
+    s->mem_num_banks_vram = rominfo.num_vram_banks;
+
+    s->mem_ROM = malloc(ROM_BANKSIZE * s->mem_num_banks_rom);
+    s->mem_RAM = malloc(RAM_BANKSIZE * s->mem_num_banks_ram);
+    s->mem_EXTRAM = malloc(EXTRAM_BANKSIZE * s->mem_num_banks_extram);
+    s->mem_VRAM = malloc(VRAM_BANKSIZE * s->mem_num_banks_vram);
+
+    memset(s->mem_ROM, 0, ROM_BANKSIZE * s->mem_num_banks_rom);
+    memcpy(s->mem_ROM, rom, rom_size);
+
+    return 0;
+}
+
+/*
+ * Initialize the emulator state of the gameboy. This state belongs to the
+ * emulator, not the state of the emulated hardware.
+ */
 void init_emu_state(struct gb_state *s) {
     s->emu_state = calloc(1, sizeof(struct emu_state));
     s->emu_state->quit = 0;
@@ -223,54 +233,94 @@ void init_emu_state(struct gb_state *s) {
     s->emu_state->dbg_breakpoint = 0xffff;
 }
 
-int state_save(char *filename, struct gb_state *s) {
-    FILE *fp;
+/*
+ * Dump the current state of the gameboy into a buffer. This function allocates
+ * a buffer large enough to hold `struct gb_state` and all the memory of the
+ * gameboy (ROM, RAM, EXT_RAM, VRAM).
+ */
+int state_save(struct gb_state *s, u8 **ret_state_buf,
+        size_t *ret_state_size) {
+    size_t rom_size = ROM_BANKSIZE * s->mem_num_banks_rom;
+    size_t ram_size = RAM_BANKSIZE * s->mem_num_banks_ram;
+    size_t extram_size = EXTRAM_BANKSIZE * s->mem_num_banks_extram;
+    size_t vram_size = VRAM_BANKSIZE * s->mem_num_banks_vram;
 
-    fp = fopen(filename, "wb");
-    if (!fp) {
-        fprintf(stderr, "Failed to open state file (\"%s\").\n", filename);
-        return 1;
-    }
+    size_t state_size = sizeof(u32) + sizeof(struct gb_state) +
+        rom_size + ram_size + extram_size + vram_size;
+    u8 *state_buf = malloc(state_size);
 
-    u32 state_size = sizeof(struct gb_state);
-    fwrite(&state_size, sizeof(state_size), 1, fp);
-    fwrite(s, sizeof(struct gb_state), 1, fp);
-    fwrite(s->mem_ROM, ROM_BANKSIZE * s->mem_num_banks_rom, 1, fp);
-    fwrite(s->mem_RAM, RAM_BANKSIZE * s->mem_num_banks_ram, 1, fp);
-    fwrite(s->mem_EXTRAM, EXTRAM_BANKSIZE * s->mem_num_banks_extram, 1, fp);
-    fwrite(s->mem_VRAM, VRAM_BANKSIZE * s->mem_num_banks_vram, 1, fp);
-    fclose(fp);
+    *((u32*)state_buf) = sizeof(struct gb_state);
+    struct gb_state *ts = (struct gb_state*)(state_buf + sizeof(u32));
+    *ts = *s;
+    u8 *rom_start = (u8*)(ts + 1);
+    u8 *ram_start = rom_start + rom_size;
+    u8 *extram_start = ram_start + ram_size;
+    u8 *vram_start = extram_start + extram_size;
+
+    memcpy(rom_start, s->mem_ROM, rom_size);
+    memcpy(ram_start, s->mem_RAM, ram_size);
+    memcpy(extram_start, s->mem_EXTRAM, extram_size);
+    memcpy(vram_start, s->mem_VRAM, vram_size);
+
+    *ret_state_size = state_size;
+    *ret_state_buf = state_buf;
     return 0;
 }
 
-int state_load(char *filename, struct gb_state *s) {
-    FILE *fp;
+/*
+ * Load the state from the given buffer. This should be a state buffer generated
+ * previously by `state_save`.
+ *
+ * A non-zero return value indicates an error. An error occurs when the header
+ * of the state is not compatible with the program (different sizes of `struct
+ * gb_state`).
+ *
+ * This function allocates memory for the underlying buffers of the `struct
+ * gb_state` that form the memory of the gameboy (ROM, RAM, EXT_RAM, VRAM).
+ */
+int state_load(struct gb_state *s, u8 *state_buf, size_t state_buf_size) {
+    assert(state_buf_size >= sizeof(u32));
+    state_buf_size -= sizeof(u32);
+    u32 state_size = *((u32*)state_buf);
+    if (state_size != sizeof(struct gb_state))
+        err("State header mismatch: file statesize is %u byte, program "
+            "statesize is %zu byte.\n", state_size, sizeof(struct gb_state));
 
-    fp = fopen(filename, "rb");
-    if (!fp) {
-        fprintf(stderr, "Failed to open state file (\"%s\").\n", filename);
-        return 1;
-    }
+    assert(state_buf_size >= sizeof(struct gb_state));
+    state_buf_size -= sizeof(struct gb_state);
 
-    u32 state_size;
-    fread(&state_size, sizeof(state_size), 1, fp);
-    if (state_size != sizeof(struct gb_state)) {
-        fprintf(stderr, "Header mismatch for \"%s\": file statesize is %u "
-                "byte, program statesize is %zu byte.\n", filename, state_size,
-                sizeof(struct gb_state));
-        return 1;
-    }
+    struct gb_state *fs = (struct gb_state*)(state_buf + sizeof(u32));
+    *s = *fs;
 
-    fread(s, sizeof(struct gb_state), 1, fp);
-    s->mem_ROM = malloc(ROM_BANKSIZE * s->mem_num_banks_rom);
-    s->mem_RAM = malloc(RAM_BANKSIZE * s->mem_num_banks_ram);
-    s->mem_EXTRAM = malloc(EXTRAM_BANKSIZE * s->mem_num_banks_extram);
-    s->mem_VRAM = malloc(VRAM_BANKSIZE * s->mem_num_banks_vram);
-    fread(s->mem_ROM, ROM_BANKSIZE * s->mem_num_banks_rom, 1, fp);
-    fread(s->mem_RAM, RAM_BANKSIZE * s->mem_num_banks_ram, 1, fp);
-    fread(s->mem_EXTRAM, EXTRAM_BANKSIZE * s->mem_num_banks_extram, 1, fp);
-    fread(s->mem_VRAM, VRAM_BANKSIZE * s->mem_num_banks_vram, 1, fp);
-    fclose(fp);
+    size_t romsize = ROM_BANKSIZE * s->mem_num_banks_rom;
+    assert(state_buf_size >= romsize);
+    state_buf_size -= romsize;
+    s->mem_ROM = malloc(romsize);
+    u8 *romstart = (u8*)(fs + 1);
+    memcpy(s->mem_ROM, romstart, romsize);
+
+    size_t ramsize = RAM_BANKSIZE * s->mem_num_banks_ram;
+    assert(state_buf_size >= ramsize);
+    state_buf_size -= ramsize;
+    s->mem_RAM = malloc(ramsize);
+    u8 *ramstart = romstart + romsize;
+    memcpy(s->mem_RAM, ramstart, ramsize);
+
+    size_t extramsize = EXTRAM_BANKSIZE * s->mem_num_banks_extram;
+    assert(state_buf_size >= extramsize);
+    state_buf_size -= extramsize;
+    s->mem_EXTRAM = malloc(extramsize);
+    u8 *extramstart = ramstart + ramsize;
+    memcpy(s->mem_EXTRAM, extramstart, extramsize);
+
+    size_t vramsize = VRAM_BANKSIZE * s->mem_num_banks_vram;
+    assert(state_buf_size >= vramsize);
+    state_buf_size -= vramsize;
+    s->mem_VRAM = malloc(vramsize);
+    u8 *vramstart = extramstart + extramsize;
+    memcpy(s->mem_VRAM, vramstart, vramsize);
+
+    assert(state_buf_size == 0);
 
     return 0;
 }

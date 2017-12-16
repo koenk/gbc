@@ -138,9 +138,11 @@ void cpu_reset_state(struct gb_state *s) {
     s->io_lcd_OBPI = 0x00;
     s->io_lcd_OBPD = 0x00;
     s->io_lcd_LCDC = 0x91;
+    s->io_lcd_STAT = 0x00;
     s->io_lcd_LY   = 0x00;
     s->io_lcd_LYC  = 0x00;
 
+    s->io_timer_DIV_cycles = 0x00;
     s->io_timer_DIV  = 0x00;
     s->io_timer_TIMA = 0x00;
     s->io_timer_TMA  = 0x00;
@@ -200,6 +202,8 @@ void cpu_reset_state(struct gb_state *s) {
     s->mem_latch_rtc = 0x01;
     memset(s->mem_RTC, 0, 0x05);
 
+    s->in_bios = 0;
+
     /*
     s->in_bios = 1;
     s->pc = 0;
@@ -249,7 +253,7 @@ static void cpu_handle_LCD(struct gb_state *s, int op_cycles) {
                 s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 1;
                 s->lcd_mode_clks_left = GB_LCD_MODE_1_CLKS;
                 s->interrupts_request |= 1 << 0;
-                s->lcd_screen_needs_rerender = 1;
+                s->emu_state->lcd_screen_needs_rerender = 1;
             } else { /* Back into OAM (2) */
                 s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 2;
                 s->lcd_mode_clks_left = GB_LCD_MODE_2_CLKS;
@@ -268,7 +272,7 @@ static void cpu_handle_LCD(struct gb_state *s, int op_cycles) {
         case 3: /* OAM+VRAM, let's HBlank (0) */
             s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 0;
             s->lcd_mode_clks_left = GB_LCD_MODE_0_CLKS;
-            s->lcd_line_needs_rerender = 1;
+            s->emu_state->lcd_line_needs_rerender = 1;
             break;
         }
     }
