@@ -258,7 +258,7 @@ void gui_render_frame(struct gb_state *gb_state) {
     SDL_RenderCopy(renderer, texture, NULL, NULL);
     SDL_RenderPresent(renderer);
 
-    SDL_Delay(1000/60);
+    SDL_Delay(1000/120);
 }
 
 int gui_handleinputs(struct gb_state *gb_state) {
