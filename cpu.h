@@ -1,4 +1,3 @@
-#pragma once
 #ifndef GBC_H
 #define GBC_H
 
