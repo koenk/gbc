@@ -18,12 +18,8 @@ static void cpu_handle_interrupts(struct gb_state *state);
 static void cpu_handle_LCD(struct gb_state *state, int op_cycles);
 
 static const int GB_FREQ = 4194304; /* Hz */
-static const int GB_LCD_WIDTH = 160;
-static const int GB_LCD_HEIGHT = 144;
 
 static const int GB_LCD_LY_MAX = 153;
-static const int GB_LCD_WX_MAX = 166;
-static const int GB_LCD_WY_MAX = 143;
 
 static const int GB_LCD_MODE_0_CLKS = 204;
 static const int GB_LCD_MODE_1_CLKS = 4560;
@@ -757,7 +753,6 @@ int cpu_do_instruction(struct gb_state *s) {
     } else if (M(op, 0xe8, 0xff)) { /* ADD SP, imm8s */
         s8 off = (s8)IMM8;
         u32 res = s->sp + off;
-        u16 tmp = s->sp;
         ZF = 0;
         NF = 0;
         HF = (s->sp & 0xf) + (IMM8 & 0xf) > 0xf;
