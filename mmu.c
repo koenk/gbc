@@ -50,18 +50,34 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
         break;
     case 0x4000: /* 4000 - 5FFF */
     case 0x5000:
-        MMU_DEBUG_W("RAM bank number -OR- RTC register select");
-        mmu_assert(value < s->mem_num_banks_ram); /* TODO: RTC 08-0C */
-        s->mem_ram_rtc_select = value;
+        if (s->mbc == 1) {
+            MMU_DEBUG_W("RAM bank number -OR- upper bits ROM bank number");
+            s->mem_mbc1_ram_romupper = value;
+        } else if (s->mbc == 3) {
+            MMU_DEBUG_W("RAM bank number -OR- RTC register select");
+            mmu_assert(value < s->mem_num_banks_ram); /* TODO: RTC 08-0C */
+            s->mem_mbc3_ram_rtc_select = value;
+        } else
+            mmu_error("Area not implemented for this MBC (mbc=%d, loc=%.4x, val=%x)\n", s->mbc, location, value);
         break;
     case 0x6000: /* 6000 - 7FFF */
     case 0x7000:
-        MMU_DEBUG_W("Latch clock data");
-        if (s->mem_latch_rtc == 0x01 && value == 0x01) {
-            /* TODO... actually latch something? */
-            s->mem_latch_rtc = s->mem_latch_rtc;
-        }
-        s->mem_latch_rtc = value;
+        if (s->mbc == 1) {
+            MMU_DEBUG_W("ROM/RAM mode select");
+            mmu_assert(value <= 1);
+            s->mem_mbc1_romram_select = value;
+        } else if (s->has_rtc) { /* MBC3 only */
+            MMU_DEBUG_W("Latch clock data");
+            if (s->mem_latch_rtc == 0x01 && value == 0x01) {
+                /* TODO... actually latch something? */
+                s->mem_latch_rtc = s->mem_latch_rtc;
+            }
+            s->mem_latch_rtc = value;
+        } else if (s->mbc == 3) { /* MBC3 without RTC */
+            /* Just ignore it - Pokemon Red writes here because it's coded for
+             * MBC1, but actually has an MBC3? */
+        } else
+            mmu_error("Area not implemented for this MBC (mbc=%d, loc=%.4x, val=%x)\n", s->mbc, location, value);
         break;
     case 0x8000: /* 8000 - 9FFF */
     case 0x9000:
@@ -71,13 +87,22 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
         break;
     case 0xa000: /* A000 - BFFF */
     case 0xb000:
-        MMU_DEBUG_W("EXTRAM (sw)/RTC (B%d)", s->mem_ram_rtc_select);
-        if (s->mem_ram_rtc_select < 0x04)
-            s->mem_RAM[s->mem_ram_rtc_select * EXTRAM_BANKSIZE + location - 0xa000] = value;
-        else if (s->mem_ram_rtc_select >= 0x08 && s->mem_ram_rtc_select <= 0x0c)
-            s->mem_RTC[s->mem_ram_rtc_select - 0xa008] = value;
-        else
-            mmu_error("Writing to extram/rtc with invalid selection (%d) @%x, val=%x", s->mem_ram_rtc_select, location, value);
+        if (s->mbc == 1) {
+            MMU_DEBUG_W("EXTRAM (B%d)", s->mem_mbc1_ram_romupper);
+            if (s->mem_mbc1_romram_select == 1) /* RAM mode */
+                s->mem_EXTRAM[s->mem_mbc1_ram_romupper * EXTRAM_BANKSIZE + location - 0xa000] = value;
+            else /* ROM mode - we can only be bank 0 */
+                s->mem_EXTRAM[location - 0xa000] = value;
+        } else if (s->mbc == 3) {
+            MMU_DEBUG_W("EXTRAM (sw)/RTC (B%d)", s->mem_mbc3_ram_rtc_select);
+            if (s->mem_mbc3_ram_rtc_select < 0x04)
+                s->mem_EXTRAM[s->mem_mbc3_ram_rtc_select * EXTRAM_BANKSIZE + location - 0xa000] = value;
+            else if (s->mem_mbc3_ram_rtc_select >= 0x08 && s->mem_mbc3_ram_rtc_select <= 0x0c)
+                s->mem_RTC[s->mem_mbc3_ram_rtc_select - 0xa008] = value;
+            else
+                mmu_error("Writing to extram/rtc with invalid selection (%d) @%x, val=%x", s->mem_mbc3_ram_rtc_select, location, value);
+        } else
+            mmu_error("Area not implemented for this MBC (mbc=%d, loc=%.4x, val=%x)\n", s->mbc, location, value);
         break;
     case 0xc000: /* C000 - CFFF */
         MMU_DEBUG_W("RAM B0");
@@ -392,6 +417,8 @@ u8 mmu_read(struct gb_state *s, u16 location) {
     case 0x6000:
     case 0x7000:
         //MMU_DEBUG_R("ROM B%d, %4x", s->mem_bank_rom, s->mem_bank_rom * 0x4000 + (location - 0x4000));
+        if (s->mbc == 1 && s->mem_mbc1_romram_select == 0)
+            mmu_error("MBC1 upper rom bits TODO");
         mmu_assert(s->mem_num_banks_rom > 0);
         mmu_assert(s->mem_bank_rom < s->mem_num_banks_rom);
         return s->mem_ROM[s->mem_bank_rom * 0x4000 + (location - 0x4000)];
@@ -403,13 +430,23 @@ u8 mmu_read(struct gb_state *s, u16 location) {
         break;
     case 0xa000: /* A000 - BFFF */
     case 0xb000:
-        MMU_DEBUG_R("EXTRAM (sw)/RTC");
-        if (s->mem_ram_rtc_select < 0x04)
-            return s->mem_RAM[s->mem_ram_rtc_select * EXTRAM_BANKSIZE + location - 0xa000];
-        else if (s->mem_ram_rtc_select >= 0x08 && s->mem_ram_rtc_select <= 0x0c)
-            return s->mem_RTC[s->mem_ram_rtc_select - 0xa008];
+        if (s->mbc == 1) {
+            MMU_DEBUG_R("EXTRAM (rom/ram: %d, B%d)", s->mbc1_romram_select, s->mem_mbc1_ram_romupper);
+            if (s->mem_mbc1_romram_select == 1) /* RAM mode */
+                return s->mem_EXTRAM[s->mem_mbc1_ram_romupper * EXTRAM_BANKSIZE + location - 0xa000];
+            else /* ROM mode - we can only be bank 0 */
+                return s->mem_EXTRAM[location - 0xa000];
+        } else if (s->mbc == 3) {
+            MMU_DEBUG_R("EXTRAM (sw)/RTC (B%d)", s->mem_mbc3_ram_rtc_select);
+            if (s->mem_mbc3_ram_rtc_select < 0x04)
+                return s->mem_EXTRAM[s->mem_mbc3_ram_rtc_select * EXTRAM_BANKSIZE + location - 0xa000];
+            else if (s->mem_mbc3_ram_rtc_select >= 0x08 && s->mem_mbc3_ram_rtc_select <= 0x0c)
+                return s->mem_RTC[s->mem_mbc3_ram_rtc_select - 0xa008];
+            else
+                mmu_error("Reading from extram/rtc with invalid selection (%d) @%x", s->mem_mbc3_ram_rtc_select, location);
+        } else
+            mmu_error("Area not implemented for this MBC (mbc=%d, location=%.4x)\n", s->mbc, location);
 
-        mmu_error("Reading from unknown EXTRAM/RTC: select=%x @%x", s->mem_ram_rtc_select, location);
         return 0;
     case 0xc000: /* C000 - CFFF */
         //MMU_DEBUG_R("RAM B0  @%x", (location - 0xc000));

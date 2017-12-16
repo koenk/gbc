@@ -142,7 +142,9 @@ struct gb_state
     int mem_bank_ram, mem_num_banks_ram;
     int mem_bank_extram, mem_num_banks_extram;
     int mem_bank_vram, mem_num_banks_vram;
-    u8 mem_ram_rtc_select;
+    u8 mem_mbc1_ram_romupper; /* MBC1 - RAM bank -OR- upper bits ROM bank. */
+    u8 mem_mbc1_romram_select; /* MBC1 - Mode for above field (ROM/RAM). */
+    u8 mem_mbc3_ram_rtc_select;
 
     u8 *mem_ROM; /* Between 16K and 4M (banked) */
     u8 *mem_RAM; /* Internal RAM (WRAM), 8K non-CGB, 32K CGB (banked) */
