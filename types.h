@@ -168,6 +168,7 @@ struct gb_state
     char has_rtc;
 
     char quit;
+    char make_savestate;
     char dbg_break_next;
     u16 dbg_breakpoint;
 };

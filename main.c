@@ -245,8 +245,77 @@ struct gb_state *new_gb_state(u8 *bios, u8 *rom, size_t rom_inpsize,
     s->dbg_breakpoint = 0xffff;
 
     s->quit = 0;
+    s->make_savestate = 0;
 
     return s;
+}
+
+int state_save(char *filename, struct gb_state *s) {
+    FILE *fp;
+
+    fp = fopen(filename, "wb");
+    if (!fp) {
+        fprintf(stderr, "Failed to open state file (\"%s\").\n", filename);
+        return 1;
+    }
+
+    u32 state_size = sizeof(struct gb_state);
+    fwrite(&state_size, sizeof(state_size), 1, fp);
+    fwrite(s, sizeof(struct gb_state), 1, fp);
+    fwrite(s->mem_ROM, ROM_BANKSIZE * s->mem_num_banks_rom, 1, fp);
+    fwrite(s->mem_RAM, RAM_BANKSIZE * s->mem_num_banks_ram, 1, fp);
+    fwrite(s->mem_EXTRAM, EXTRAM_BANKSIZE * s->mem_num_banks_extram, 1, fp);
+    fwrite(s->mem_VRAM, VRAM_BANKSIZE * s->mem_num_banks_vram, 1, fp);
+    fclose(fp);
+    return 0;
+}
+
+int state_load(char *filename, struct gb_state *s) {
+    FILE *fp;
+
+    fp = fopen(filename, "rb");
+    if (!fp) {
+        fprintf(stderr, "Failed to open state file (\"%s\").\n", filename);
+        return 1;
+    }
+
+    u32 state_size;
+    fread(&state_size, sizeof(state_size), 1, fp);
+    if (state_size != sizeof(struct gb_state)) {
+        fprintf(stderr, "Header mismatch for \"%s\": file statesize is %u "
+                "byte, program statesize is %zu byte.\n", filename, state_size,
+                sizeof(struct gb_state));
+        return 1;
+    }
+
+    fread(s, sizeof(struct gb_state), 1, fp);
+    s->mem_ROM = malloc(ROM_BANKSIZE * s->mem_num_banks_rom);
+    s->mem_RAM = malloc(RAM_BANKSIZE * s->mem_num_banks_ram);
+    s->mem_EXTRAM = malloc(EXTRAM_BANKSIZE * s->mem_num_banks_extram);
+    s->mem_VRAM = malloc(VRAM_BANKSIZE * s->mem_num_banks_vram);
+    fread(s->mem_ROM, ROM_BANKSIZE * s->mem_num_banks_rom, 1, fp);
+    fread(s->mem_RAM, RAM_BANKSIZE * s->mem_num_banks_ram, 1, fp);
+    fread(s->mem_EXTRAM, EXTRAM_BANKSIZE * s->mem_num_banks_extram, 1, fp);
+    fread(s->mem_VRAM, VRAM_BANKSIZE * s->mem_num_banks_vram, 1, fp);
+    fclose(fp);
+
+    s->reg8_lut[0] = &s->reg8.B;
+    s->reg8_lut[1] = &s->reg8.C;
+    s->reg8_lut[2] = &s->reg8.D;
+    s->reg8_lut[3] = &s->reg8.E;
+    s->reg8_lut[4] = &s->reg8.H;
+    s->reg8_lut[5] = &s->reg8.L;
+    s->reg8_lut[6] = NULL;
+    s->reg8_lut[7] = &s->reg8.A;
+    s->reg16_lut[0] = &s->reg16.BC;
+    s->reg16_lut[1] = &s->reg16.DE;
+    s->reg16_lut[2] = &s->reg16.HL;
+    s->reg16_lut[3] = &s->sp;
+    s->reg16s_lut[0] = &s->reg16.BC;
+    s->reg16s_lut[1] = &s->reg16.DE;
+    s->reg16s_lut[2] = &s->reg16.HL;
+    s->reg16s_lut[3] = &s->reg16.AF;
+    return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -258,22 +327,35 @@ int main(int argc, char *argv[]) {
 
     char *romname = "test.gb";
     enum gb_type gb_type = GB_TYPE_GB;
-    if (argc > 2) {
-        printf("Usage: %s [rom]\n", argv[0]);
+    if (argc > 3) {
+        printf("Usage: %s [rom] [state]\n", argv[0]);
         exit(1);
-    } else if (argc == 2)
+    }
+
+    if (argc >= 2)
         romname = argv[1];
 
+    if (argc != 3) {
+        read_file(romname, &rom, &romsize);
+        read_file("bios.bin", &bios, &bios_size);
+        assert(bios_size == 256);
 
-    read_file(romname, &rom, &romsize);
-    read_file("bios.bin", &bios, &bios_size);
-    assert(bios_size == 256);
+        print_rom_header_info(rom);
 
-    print_rom_header_info(rom);
+        gb_state = new_gb_state(bios, rom, romsize, gb_type);
 
-    gb_state = new_gb_state(bios, rom, romsize, gb_type);
+        disassemble_bootblock(gb_state);
 
-    disassemble_bootblock(gb_state);
+        cpu_reset_state(gb_state);
+    } else if (argc == 3) {
+        printf("Loading savestate ...\n");
+        gb_state = malloc(sizeof(struct gb_state));
+        if (state_load("koekje.gbstate", gb_state)) {
+            fprintf(stderr, "Error during loading of state, aborting...\n");
+            exit(1);
+        }
+        print_rom_header_info(gb_state->mem_ROM);
+    }
 
     if (gui_init()) {
         printf("Couldn't initialize LCD, exiting...\n");
@@ -286,9 +368,13 @@ int main(int argc, char *argv[]) {
 
     int ret = 0;
     int instr = 0;
-    cpu_reset_state(gb_state);
     struct timeval starttime, endtime;
     gettimeofday(&starttime, NULL);
+
+#if 0
+    if (argc == 3)
+        gb_state->dbg_break_next = 1;
+#endif
 
     while (!ret && !gb_state->quit) {
         //disassemble(gb_state);
@@ -312,6 +398,12 @@ int main(int argc, char *argv[]) {
 
             if (gui_handleinputs(gb_state))
                 break;
+        }
+
+        if (gb_state->make_savestate) {
+            gb_state->make_savestate = 0;
+            state_save("koekje.gbstate", gb_state);
+            printf("State saved to \"%s\"\n", "koekje.gbstate");
         }
 
     }
