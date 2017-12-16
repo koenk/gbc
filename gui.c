@@ -163,7 +163,7 @@ void gui_render_current_line(struct gb_state *gb_state) {
                     (((b2 >> shift) & 1) << 1);
 
             u8 col = palette_get(bgwin_palette, colidx);
-            pixbuf[x + y * GUI_PX_WIDTH] = colidx;
+            pixbuf[x + y * GUI_PX_WIDTH] = col;
         }
     } else {
         /* Background disabled - set all pixels to 0 */
@@ -202,7 +202,7 @@ void gui_render_current_line(struct gb_state *gb_state) {
                        (((b2 >> shift) & 1) << 1);
 
             u8 col = palette_get(bgwin_palette, colidx);
-            pixbuf[x + y * GUI_PX_WIDTH] = colidx;
+            pixbuf[x + y * GUI_PX_WIDTH] = col;
         }
     }
 
