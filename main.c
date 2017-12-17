@@ -231,6 +231,16 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "Error during loading of save, aborting.\n");
                 exit(1);
             }
+        } else {
+            snprintf(save_filename_out, sizeof(save_filename_out), "%ssav",
+                    emu_args.rom_filename);
+            u8 *state_buf;
+            size_t state_buf_size;
+            if (read_file(save_filename_out, &state_buf, &state_buf_size) == 0)
+                if (state_load_extram(&gb_state, state_buf, state_buf_size)) {
+                    fprintf(stderr, "Error during loading of save.\n");
+                    exit(1);
+                }
 
         }
     } else {
@@ -241,7 +251,10 @@ int main(int argc, char *argv[]) {
     if (emu_args.rom_filename)
         rom_filename = emu_args.rom_filename;
 
-    printf("ROM filename: %s\n", rom_filename);
+    snprintf(save_filename_out, sizeof(save_filename_out), "%ssav",
+            rom_filename);
+    snprintf(state_filename_out, sizeof(state_filename_out), "%sstate",
+            rom_filename);
 
     init_emu_state(&gb_state);
     cpu_init_emu_cpu_state(&gb_state);
@@ -298,10 +311,9 @@ int main(int argc, char *argv[]) {
             u8 *state_buf;
             size_t state_buf_size;
             state_save(&gb_state, &state_buf, &state_buf_size, rom_filename);
-            char statefile[] = "koekje.gbstate"; // TODO
-            save_file(statefile, state_buf, state_buf_size);
+            save_file(state_filename_out, state_buf, state_buf_size);
 
-            printf("State saved to \"%s\".\n", statefile);
+            printf("State saved to \"%s\".\n", state_filename_out);
         }
 
         if (gb_state.emu_state->flush_extram) {
@@ -309,10 +321,9 @@ int main(int argc, char *argv[]) {
             u8 *state_buf;
             size_t state_buf_size;
             state_save_extram(&gb_state, &state_buf, &state_buf_size);
-            char statefile[] = "koekje.gbsav"; // TODO
-            save_file(statefile, state_buf, state_buf_size);
+            save_file(save_filename_out, state_buf, state_buf_size);
 
-            printf("Ext RAM saved to \"%s\".\n", statefile);
+            printf("Ext RAM saved to \"%s\".\n", save_filename_out);
         }
 
     }
