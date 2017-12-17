@@ -49,6 +49,12 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
         MMU_DEBUG_W("ROM bank number");
         if (value == 0)
             value = 1;
+        if (s->mbc == 1)
+            value &= 0x1f;
+        else if (s->mbc == 3)
+            value &= 0x7f;
+        else
+            mmu_error("Area not implemented for this MBC (mbc=%d, loc=%.4x, val=%x)\n", s->mbc, location, value);
         mmu_assert(value < s->mem_num_banks_rom);
         s->mem_bank_rom = value;
         break;
@@ -441,7 +447,7 @@ u8 mmu_read(struct gb_state *s, u16 location) {
             bank |= s->mem_mbc1_rombankupper << 5;
         mmu_assert(s->mem_num_banks_rom > 0);
         mmu_assert(bank > 0);
-        mmu_assert(bank < s->mem_num_banks_rom);
+        bank &= s->mem_num_banks_rom - 1;
         return s->mem_ROM[bank * 0x4000 + (location - 0x4000)];
         break;
     }
