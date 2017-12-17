@@ -215,7 +215,6 @@ void gui_render_current_line(struct gb_state *gb_state) {
             if (obj_tileoff_x < 0 || obj_tileoff_x >= 8)
                 continue;
 
-            /* TODO: prio */
             if (objs[i].flags & (1<<5)) /* Flip x */
                 obj_tileoff_x = 7 - obj_tileoff_x;
             if (objs[i].flags & (1<<6)) /* Flip y */
@@ -229,6 +228,9 @@ void gui_render_current_line(struct gb_state *gb_state) {
                        (((b2 >> shift) & 1) << 1);
 
             if (colidx != 0) {
+                if (objs[i].flags & (1<<7)) /* OBJ-to-BG prio */
+                    if (pixbuf[x + y * GUI_PX_WIDTH] > 0)
+                        continue;
                 u8 pal = objs[i].flags & (1<<4) ? obj_palette2 : obj_palette1;
                 u8 col = palette_get(pal, colidx);
                 pixbuf[x + y * GUI_PX_WIDTH] = col;
