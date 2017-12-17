@@ -276,7 +276,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 s->io_sound_enabled = value;
                 break;
             case 0xff29:
-                /* Donkey Kong Country 3 accesses this... */
+                /* Donkey Kong Land 3 accesses this... */
                 MMU_DEBUG_W("Unknown sound reg");
                 break;
             case 0xff30:
@@ -607,7 +607,7 @@ u8 mmu_read(struct gb_state *s, u16 location) {
                 MMU_DEBUG_R("Sound enabled flags");
                 return s->io_sound_enabled;
             case 0xff29:
-                /* Donkey Kong Country 3 accesses this... */
+                /* Donkey Kong Land 3 accesses this... */
                 MMU_DEBUG_R("Unknown sound reg");
                 return 0xff;
             case 0xff30:
