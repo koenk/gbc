@@ -275,6 +275,10 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 MMU_DEBUG_W("Sound enabled flags");
                 s->io_sound_enabled = value;
                 break;
+            case 0xff29:
+                /* Donkey Kong Country 3 accesses this... */
+                MMU_DEBUG_W("Unknown sound reg");
+                break;
             case 0xff30:
             case 0xff31:
             case 0xff32:
@@ -602,6 +606,10 @@ u8 mmu_read(struct gb_state *s, u16 location) {
             case 0xff26:
                 MMU_DEBUG_R("Sound enabled flags");
                 return s->io_sound_enabled;
+            case 0xff29:
+                /* Donkey Kong Country 3 accesses this... */
+                MMU_DEBUG_R("Unknown sound reg");
+                return 0xff;
             case 0xff30:
             case 0xff31:
             case 0xff32:
@@ -619,7 +627,7 @@ u8 mmu_read(struct gb_state *s, u16 location) {
             case 0xff3e:
             case 0xff3f:
                 MMU_DEBUG_R("Waveform pattern RAM @%.4x", location);
-                break;
+                return 0xff; // TODO
             case 0xff40:
                 MMU_DEBUG_R("LCD Control (%04x: %02x)", location, s->io_lcd_LCDC);
                 return s->io_lcd_LCDC;
