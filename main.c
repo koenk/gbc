@@ -79,14 +79,20 @@ void print_usage(char *progname) {
             "it.\n");
     printf(" -b, --bios=FILE        Use the specified bios (default is no "
             "bios).\n");
-    printf(" -l, --load-state=FILE  Load the gamestaet from a file (makes ROM "
+    printf(" -l, --load-state=FILE  Load the gamestate from a file (makes ROM "
             "optional).\n");
+    printf(" -e, --load-save=FILE   Load the battery-backed (cartridge) RAM "
+            "from a file, the \n");
+    printf("                        normal way of saving games. (Optional: the "
+            "emulator will \n");
+    printf("                        automatically search for this file).\n");
 }
 
 int parse_args(int argc, char **argv, struct emu_args *emu_args) {
     emu_args->rom_filename = NULL;
     emu_args->bios_filename = NULL;
     emu_args->state_filename = NULL;
+    emu_args->save_filename = NULL;
     emu_args->break_at_start = 0;
     emu_args->print_disas = 0;
 
@@ -160,6 +166,9 @@ int parse_args(int argc, char **argv, struct emu_args *emu_args) {
 
 int main(int argc, char *argv[]) {
     struct gb_state gb_state;
+    char *rom_filename = NULL;
+    char state_filename_out[1024];
+    char save_filename_out[1024];
 
     enum gb_type gb_type = GB_TYPE_GB;
 
@@ -176,7 +185,7 @@ int main(int argc, char *argv[]) {
                     emu_args.state_filename);
             exit(1);
         }
-        if (state_load(&gb_state, state_buf, state_buf_size)) {
+        if (state_load(&gb_state, state_buf, state_buf_size, &rom_filename)) {
             fprintf(stderr, "Error during loading of state, aborting.\n");
             exit(1);
         }
@@ -228,6 +237,11 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Neither state filename nor ROM filename given!\n");
         exit(1);
     }
+
+    if (emu_args.rom_filename)
+        rom_filename = emu_args.rom_filename;
+
+    printf("ROM filename: %s\n", rom_filename);
 
     init_emu_state(&gb_state);
     cpu_init_emu_cpu_state(&gb_state);
@@ -283,7 +297,7 @@ int main(int argc, char *argv[]) {
 
             u8 *state_buf;
             size_t state_buf_size;
-            state_save(&gb_state, &state_buf, &state_buf_size);
+            state_save(&gb_state, &state_buf, &state_buf_size, rom_filename);
             char statefile[] = "koekje.gbstate"; // TODO
             save_file(statefile, state_buf, state_buf_size);
 
