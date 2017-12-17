@@ -260,30 +260,24 @@ void init_emu_state(struct gb_state *s) {
  * a buffer large enough to hold `struct gb_state` and all the memory of the
  * gameboy (ROM, RAM, EXT_RAM, VRAM).
  */
-int state_save(struct gb_state *s, u8 **ret_state_buf,
-        size_t *ret_state_size, char *rom_filename) {
+int state_save(struct gb_state *s, u8 **ret_state_buf, size_t *ret_state_size) {
     size_t rom_size = ROM_BANKSIZE * s->mem_num_banks_rom;
     size_t ram_size = RAM_BANKSIZE * s->mem_num_banks_ram;
     size_t extram_size = EXTRAM_BANKSIZE * s->mem_num_banks_extram;
     size_t vram_size = VRAM_BANKSIZE * s->mem_num_banks_vram;
-    size_t rom_filename_size = strlen(rom_filename);
 
     if (s->in_bios) {
         fprintf(stderr, "Cannot dump state while in bios\n");
         return 1;
     }
 
-    size_t state_size = 2 * sizeof(u32) + rom_filename_size +
-        sizeof(struct gb_state) + rom_size + ram_size + extram_size + vram_size;
+    size_t state_size = sizeof(u32) + sizeof(struct gb_state) + rom_size +
+        ram_size + extram_size + vram_size;
     u8 *state_buf = malloc(state_size);
 
     u32 *hdr = (u32*)state_buf;
     hdr[0] = sizeof(struct gb_state);
-    hdr[1] = rom_filename_size;
-    char *hdr_rom_filename = (char*)&hdr[2];
-    memcpy(hdr_rom_filename, rom_filename, rom_filename_size);
-    struct gb_state *ts =
-        (struct gb_state*)(hdr_rom_filename + rom_filename_size);
+    struct gb_state *ts = (struct gb_state*)(&hdr[1]);
     *ts = *s;
     u8 *rom_start = (u8*)(ts + 1);
     u8 *ram_start = rom_start + rom_size;
@@ -311,30 +305,19 @@ int state_save(struct gb_state *s, u8 **ret_state_buf,
  * This function allocates memory for the underlying buffers of the `struct
  * gb_state` that form the memory of the gameboy (ROM, RAM, EXT_RAM, VRAM).
  */
-int state_load(struct gb_state *s, u8 *state_buf, size_t state_buf_size,
-        char **ret_rom_filename) {
-    assert(state_buf_size >= 2 * sizeof(u32));
-    state_buf_size -= 2 * sizeof(u32);
+int state_load(struct gb_state *s, u8 *state_buf, size_t state_buf_size) {
+    assert(state_buf_size >= sizeof(u32));
+    state_buf_size -= sizeof(u32);
     u32 *state_hdr = (u32*)state_buf;
     u32 state_size = state_hdr[0];
     if (state_size != sizeof(struct gb_state))
         err("State header mismatch: file statesize is %u byte, program "
             "statesize is %zu byte.\n", state_size, sizeof(struct gb_state));
 
-    u32 rom_filename_len = state_hdr[1];
-    assert(rom_filename_len > 0);
-    assert(state_buf_size >= rom_filename_len);
-    state_buf_size -= rom_filename_len;
-    *ret_rom_filename = malloc(rom_filename_len + 1);
-    char *hdr_rom_filename = (char*)&state_hdr[2];
-    memcpy(*ret_rom_filename, hdr_rom_filename, rom_filename_len);
-    (*ret_rom_filename)[rom_filename_len] = '\0';
-
     assert(state_buf_size >= sizeof(struct gb_state));
     state_buf_size -= sizeof(struct gb_state);
 
-    struct gb_state *fs =
-        (struct gb_state*)(hdr_rom_filename + rom_filename_len);
+    struct gb_state *fs = (struct gb_state*)(&state_hdr[1]);
     *s = *fs;
 
     size_t romsize = ROM_BANKSIZE * s->mem_num_banks_rom;

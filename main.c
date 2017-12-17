@@ -70,7 +70,7 @@ struct emu_args {
 };
 
 void print_usage(char *progname) {
-    printf("Usage: %s [option]... [rom]\n\n", progname);
+    printf("Usage: %s [option]... rom\n\n", progname);
     printf("GameBoy emulator by koenk.\n\n");
     printf("Options:\n");
     printf(" -s, --break-start      Break into debugger before executing first "
@@ -143,30 +143,20 @@ int parse_args(int argc, char **argv, struct emu_args *emu_args) {
         }
     }
 
-    if (optind < argc) {
+    if (optind != argc - 1) {
         /* The remainder are non-option arguments (ROM) */
-        if (argc - optind > 1) {
-            print_usage(argv[0]);
-            return 1;
-        }
 
-        emu_args->rom_filename = argv[optind];
-    }
-
-    if (!emu_args->rom_filename && !emu_args->state_filename) {
-        fprintf(stderr, "Must specify either ROM filename or state "
-                "filename.\n");
         print_usage(argv[0]);
         return 1;
     }
+
+    emu_args->rom_filename = argv[optind];
 
     return 0;
 }
 
 
-void save(struct gb_state *s, char extram, char *out_filename,
-        char *rom_filename) {
-
+void save(struct gb_state *s, char extram, char *out_filename) {
     u8 *state_buf;
     size_t state_buf_size;
 
@@ -176,7 +166,7 @@ void save(struct gb_state *s, char extram, char *out_filename,
     if (extram)
         state_save_extram(s, &state_buf, &state_buf_size);
     else
-        state_save(s, &state_buf, &state_buf_size, rom_filename);
+        state_save(s, &state_buf, &state_buf_size);
 
     save_file(out_filename, state_buf, state_buf_size);
 
@@ -205,13 +195,13 @@ int main(int argc, char *argv[]) {
                     emu_args.state_filename);
             exit(1);
         }
-        if (state_load(&gb_state, state_buf, state_buf_size, &rom_filename)) {
+        if (state_load(&gb_state, state_buf, state_buf_size)) {
             fprintf(stderr, "Error during loading of state, aborting.\n");
             exit(1);
         }
         print_rom_header_info(gb_state.mem_ROM);
 
-    } else if (emu_args.rom_filename) {
+    } else {
         u8 *rom;
         size_t rom_size;
         printf("Loading ROM \"%s\"\n", emu_args.rom_filename);
@@ -263,9 +253,6 @@ int main(int argc, char *argv[]) {
                 }
 
         }
-    } else {
-        fprintf(stderr, "Neither state filename nor ROM filename given!\n");
-        exit(1);
     }
 
     if (emu_args.rom_filename)
@@ -326,19 +313,19 @@ int main(int argc, char *argv[]) {
 
             /* Save periodically (once per frame) if dirty. */
             if (gb_state.emu_state->extram_dirty)
-                save(&gb_state, 1, save_filename_out, rom_filename);
+                save(&gb_state, 1, save_filename_out);
             gb_state.emu_state->extram_dirty = 0;
         }
 
         if (gb_state.emu_state->make_savestate) {
             gb_state.emu_state->make_savestate = 0;
-            save(&gb_state, 0, state_filename_out, rom_filename);
+            save(&gb_state, 0, state_filename_out);
         }
 
         if (gb_state.emu_state->flush_extram) {
             gb_state.emu_state->flush_extram = 0;
             if (gb_state.emu_state->extram_dirty)
-                save(&gb_state, 1, save_filename_out, rom_filename);
+                save(&gb_state, 1, save_filename_out);
             gb_state.emu_state->extram_dirty = 0;
         }
 
