@@ -187,7 +187,8 @@ void cpu_reset_state(struct gb_state *s) {
     s->mem_bank_extram = 0;
     s->mem_bank_vram = 0;
 
-    s->mem_mbc1_ram_romupper = 0;
+    s->mem_mbc1_extrambank = 0;
+    s->mem_mbc1_rombankupper = 0;
     s->mem_mbc1_romram_select = 0;
     s->mem_mbc3_ram_rtc_select = 0;
 

@@ -144,7 +144,8 @@ struct gb_state
     int mem_bank_ram, mem_num_banks_ram;
     int mem_bank_extram, mem_num_banks_extram;
     int mem_bank_vram, mem_num_banks_vram;
-    u8 mem_mbc1_ram_romupper; /* MBC1 - RAM bank -OR- upper bits ROM bank. */
+    u8 mem_mbc1_rombankupper; /* MBC1 - Upper bits ROM bank (if selected). */
+    u8 mem_mbc1_extrambank; /* MBC1 - EXT_RAM bank (if selected). */
     u8 mem_mbc1_romram_select; /* MBC1 - Mode for above field (ROM/RAM). */
     u8 mem_mbc3_ram_rtc_select;
 

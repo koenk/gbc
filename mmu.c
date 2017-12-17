@@ -55,10 +55,18 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
     case 0x4000: /* 4000 - 5FFF */
     case 0x5000:
         if (s->mbc == 1) {
-            MMU_DEBUG_W("RAM bank number -OR- upper bits ROM bank number");
-            s->mem_mbc1_ram_romupper = value;
+            if (s->mem_mbc1_romram_select == 0) { /* ROM mode */
+                MMU_DEBUG_W("upper bits ROM bank number");
+                s->mem_mbc1_rombankupper = value & 3;
+            } else {
+                MMU_DEBUG_W("EXTRAM bank number");
+                s->mem_mbc1_extrambank = value & 3;
+                if (s->mem_num_banks_extram == 1)
+                    s->mem_mbc1_extrambank &= 1;
+                printf("extram banks=%d, val=%d, res=%d\n", s->mem_num_banks_extram, value, s->mem_mbc1_extrambank);
+            }
         } else if (s->mbc == 3) {
-            MMU_DEBUG_W("RAM bank number -OR- RTC register select");
+            MMU_DEBUG_W("EXTRAM bank number -OR- RTC register select");
             mmu_assert(value < s->mem_num_banks_ram); /* TODO: RTC 08-0C */
             s->mem_mbc3_ram_rtc_select = value;
         } else
@@ -68,8 +76,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
     case 0x7000:
         if (s->mbc == 1) {
             MMU_DEBUG_W("ROM/RAM mode select");
-            mmu_assert(value <= 1);
-            s->mem_mbc1_romram_select = value;
+            s->mem_mbc1_romram_select = value & 0x1;
         } else if (s->has_rtc) { /* MBC3 only */
             MMU_DEBUG_W("Latch clock data");
             if (s->mem_latch_rtc == 0x01 && value == 0x01) {
@@ -95,10 +102,10 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
             if (!s->has_extram)
                 break;
             if (s->mem_mbc1_romram_select == 1) { /* RAM mode */
-                MMU_DEBUG_W("EXTRAM (B%d)", s->mem_mbc1_ram_romupper);
-                mmu_assert(s->mem_mbc1_ram_romupper < s->mem_num_banks_extram);
-                s->mem_EXTRAM[s->mem_mbc1_ram_romupper * EXTRAM_BANKSIZE + location - 0xa000] = value;
-            } else { /* ROM mode - we can only be bank 0 */
+                MMU_DEBUG_W("EXTRAM (B%d)", s->mem_mbc1_extrambank);
+                mmu_assert(s->mem_mbc1_extrambank < s->mem_num_banks_extram);
+                s->mem_EXTRAM[s->mem_mbc1_extrambank * EXTRAM_BANKSIZE + location - 0xa000] = value;
+            } else { /* ROM mode - we can only use bank 0 */
                 MMU_DEBUG_W("EXTRAM (B0)");
                 s->mem_EXTRAM[location - 0xa000] = value;
             }
@@ -431,7 +438,7 @@ u8 mmu_read(struct gb_state *s, u16 location) {
         //MMU_DEBUG_R("ROM B%d, %4x", s->mem_bank_rom, s->mem_bank_rom * 0x4000 + (location - 0x4000));
         u8 bank = s->mem_bank_rom;
         if (s->mbc == 1 && s->mem_mbc1_romram_select == 0)
-            bank |= s->mem_mbc1_ram_romupper << 5;
+            bank |= s->mem_mbc1_rombankupper << 5;
         mmu_assert(s->mem_num_banks_rom > 0);
         mmu_assert(bank > 0);
         mmu_assert(bank < s->mem_num_banks_rom);
@@ -446,12 +453,13 @@ u8 mmu_read(struct gb_state *s, u16 location) {
     case 0xa000: /* A000 - BFFF */
     case 0xb000:
         if (s->mbc == 1) {
-            MMU_DEBUG_R("EXTRAM (rom/ram: %d, B%d)", s->mbc1_romram_select, s->mem_mbc1_ram_romupper);
+            MMU_DEBUG_R("EXTRAM (rom/ram: %d, B%d)", s->mem_mbc1_romram_select, s->mem_mbc1_ram_romupper);
             if (!s->has_extram)
                 return 0xff;
-            if (s->mem_mbc1_romram_select == 1) /* RAM mode */
-                return s->mem_EXTRAM[s->mem_mbc1_ram_romupper * EXTRAM_BANKSIZE + location - 0xa000];
-            else /* ROM mode - we can only be bank 0 */
+            if (s->mem_mbc1_romram_select == 1) { /* RAM mode */
+                mmu_assert(s->mem_mbc1_extrambank < s->mem_num_banks_extram);
+                return s->mem_EXTRAM[s->mem_mbc1_extrambank * EXTRAM_BANKSIZE + location - 0xa000];
+            } else /* ROM mode - we can only be bank 0 */
                 return s->mem_EXTRAM[location - 0xa000];
         } else if (s->mbc == 3) {
             MMU_DEBUG_R("EXTRAM (sw)/RTC (B%d)", s->mem_mbc3_ram_rtc_select);
