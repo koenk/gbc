@@ -164,6 +164,26 @@ int parse_args(int argc, char **argv, struct emu_args *emu_args) {
 }
 
 
+void save(struct gb_state *s, char extram, char *out_filename,
+        char *rom_filename) {
+
+    u8 *state_buf;
+    size_t state_buf_size;
+
+    if (extram && !s->has_extram)
+        return;
+
+    if (extram)
+        state_save_extram(s, &state_buf, &state_buf_size);
+    else
+        state_save(s, &state_buf, &state_buf_size, rom_filename);
+
+    save_file(out_filename, state_buf, state_buf_size);
+
+    printf("%s saved to \"%s\".\n", extram ? "Ext RAM" : "State", out_filename);
+}
+
+
 int main(int argc, char *argv[]) {
     struct gb_state gb_state;
     char *rom_filename = NULL;
@@ -303,27 +323,23 @@ int main(int argc, char *argv[]) {
 
             if (gui_handleinputs(&gb_state))
                 break;
+
+            /* Save periodically (once per frame) if dirty. */
+            if (gb_state.emu_state->extram_dirty)
+                save(&gb_state, 1, save_filename_out, rom_filename);
+            gb_state.emu_state->extram_dirty = 0;
         }
 
         if (gb_state.emu_state->make_savestate) {
             gb_state.emu_state->make_savestate = 0;
-
-            u8 *state_buf;
-            size_t state_buf_size;
-            state_save(&gb_state, &state_buf, &state_buf_size, rom_filename);
-            save_file(state_filename_out, state_buf, state_buf_size);
-
-            printf("State saved to \"%s\".\n", state_filename_out);
+            save(&gb_state, 0, state_filename_out, rom_filename);
         }
 
         if (gb_state.emu_state->flush_extram) {
             gb_state.emu_state->flush_extram = 0;
-            u8 *state_buf;
-            size_t state_buf_size;
-            state_save_extram(&gb_state, &state_buf, &state_buf_size);
-            save_file(save_filename_out, state_buf, state_buf_size);
-
-            printf("Ext RAM saved to \"%s\".\n", save_filename_out);
+            if (gb_state.emu_state->extram_dirty)
+                save(&gb_state, 1, save_filename_out, rom_filename);
+            gb_state.emu_state->extram_dirty = 0;
         }
 
     }

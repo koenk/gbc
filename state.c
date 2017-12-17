@@ -210,9 +210,15 @@ int state_new_from_rom(struct gb_state *s, u8 *rom, size_t rom_size,
     s->mem_num_banks_extram = rominfo.num_extram_banks;
     s->mem_num_banks_vram = rominfo.num_vram_banks;
 
+    s->mem_ROM = NULL;
+    s->mem_RAM = NULL;
+    s->mem_EXTRAM = NULL;
+    s->mem_VRAM = NULL;
+
     s->mem_ROM = malloc(ROM_BANKSIZE * s->mem_num_banks_rom);
     s->mem_RAM = malloc(RAM_BANKSIZE * s->mem_num_banks_ram);
-    s->mem_EXTRAM = malloc(EXTRAM_BANKSIZE * s->mem_num_banks_extram);
+    if (s->mem_num_banks_extram)
+        s->mem_EXTRAM = malloc(EXTRAM_BANKSIZE * s->mem_num_banks_extram);
     s->mem_VRAM = malloc(VRAM_BANKSIZE * s->mem_num_banks_vram);
 
     memset(s->mem_ROM, 0, ROM_BANKSIZE * s->mem_num_banks_rom);

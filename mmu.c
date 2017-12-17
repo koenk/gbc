@@ -92,16 +92,23 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
     case 0xa000: /* A000 - BFFF */
     case 0xb000:
         if (s->mbc == 1) {
-            MMU_DEBUG_W("EXTRAM (B%d)", s->mem_mbc1_ram_romupper);
-            if (s->mem_mbc1_romram_select == 1) /* RAM mode */
+            if (!s->has_extram)
+                break;
+            if (s->mem_mbc1_romram_select == 1) { /* RAM mode */
+                MMU_DEBUG_W("EXTRAM (B%d)", s->mem_mbc1_ram_romupper);
+                mmu_assert(s->mem_mbc1_ram_romupper < s->mem_num_banks_extram);
                 s->mem_EXTRAM[s->mem_mbc1_ram_romupper * EXTRAM_BANKSIZE + location - 0xa000] = value;
-            else /* ROM mode - we can only be bank 0 */
+            } else { /* ROM mode - we can only be bank 0 */
+                MMU_DEBUG_W("EXTRAM (B0)");
                 s->mem_EXTRAM[location - 0xa000] = value;
+            }
+            s->emu_state->extram_dirty = 1;
         } else if (s->mbc == 3) {
             MMU_DEBUG_W("EXTRAM (sw)/RTC (B%d)", s->mem_mbc3_ram_rtc_select);
-            if (s->mem_mbc3_ram_rtc_select < 0x04)
+            if (s->mem_mbc3_ram_rtc_select < 0x04) {
                 s->mem_EXTRAM[s->mem_mbc3_ram_rtc_select * EXTRAM_BANKSIZE + location - 0xa000] = value;
-            else if (s->mem_mbc3_ram_rtc_select >= 0x08 && s->mem_mbc3_ram_rtc_select <= 0x0c)
+                s->emu_state->extram_dirty = 1;
+            } else if (s->mem_mbc3_ram_rtc_select >= 0x08 && s->mem_mbc3_ram_rtc_select <= 0x0c)
                 s->mem_RTC[s->mem_mbc3_ram_rtc_select - 0xa008] = value;
             else
                 mmu_error("Writing to extram/rtc with invalid selection (%d) @%x, val=%x", s->mem_mbc3_ram_rtc_select, location, value);
@@ -420,13 +427,17 @@ u8 mmu_read(struct gb_state *s, u16 location) {
     case 0x5000:
     case 0x6000:
     case 0x7000:
+    {
         //MMU_DEBUG_R("ROM B%d, %4x", s->mem_bank_rom, s->mem_bank_rom * 0x4000 + (location - 0x4000));
+        u8 bank = s->mem_bank_rom;
         if (s->mbc == 1 && s->mem_mbc1_romram_select == 0)
-            mmu_error("MBC1 upper rom bits TODO");
+            bank |= s->mem_mbc1_ram_romupper << 5;
         mmu_assert(s->mem_num_banks_rom > 0);
-        mmu_assert(s->mem_bank_rom < s->mem_num_banks_rom);
-        return s->mem_ROM[s->mem_bank_rom * 0x4000 + (location - 0x4000)];
+        mmu_assert(bank > 0);
+        mmu_assert(bank < s->mem_num_banks_rom);
+        return s->mem_ROM[bank * 0x4000 + (location - 0x4000)];
         break;
+    }
     case 0x8000: /* 8000 - 9FFF */
     case 0x9000:
         MMU_DEBUG_R("VRAM");
@@ -436,6 +447,8 @@ u8 mmu_read(struct gb_state *s, u16 location) {
     case 0xb000:
         if (s->mbc == 1) {
             MMU_DEBUG_R("EXTRAM (rom/ram: %d, B%d)", s->mbc1_romram_select, s->mem_mbc1_ram_romupper);
+            if (!s->has_extram)
+                return 0xff;
             if (s->mem_mbc1_romram_select == 1) /* RAM mode */
                 return s->mem_EXTRAM[s->mem_mbc1_ram_romupper * EXTRAM_BANKSIZE + location - 0xa000];
             else /* ROM mode - we can only be bank 0 */
