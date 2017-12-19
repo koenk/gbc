@@ -26,6 +26,9 @@ static const int GB_LCD_MODE_1_CLKS = 4560;
 static const int GB_LCD_MODE_2_CLKS = 80;
 static const int GB_LCD_MODE_3_CLKS = 172;
 
+static const int GB_DIV_FREQ = 16384;  /* Hz */
+static const int GB_TIMA_FREQS[] = { 4096, 262144, 65536, 16384 };  /* Hz */
+
 static const u8 flagmasks[] = { FLAG_Z, FLAG_Z, FLAG_C, FLAG_C };
 
 static int cycles_per_instruction[] = {
@@ -140,6 +143,7 @@ void cpu_reset_state(struct gb_state *s) {
 
     s->io_timer_DIV_cycles = 0x00;
     s->io_timer_DIV  = 0x00;
+    s->io_timer_TIMA_cycles = 0x00;
     s->io_timer_TIMA = 0x00;
     s->io_timer_TMA  = 0x00;
     s->io_timer_TAC  = 0x00;
@@ -287,10 +291,25 @@ static void cpu_handle_LCD(struct gb_state *s, int op_cycles) {
 }
 
 static void cpu_handle_timer(struct gb_state *s, int op_cycles) {
+    u32 div_cycles_per_tick = s->freq / GB_DIV_FREQ;
     s->io_timer_DIV_cycles += op_cycles;
-    if (s->io_timer_DIV_cycles >= 16384) {
-        s->io_timer_DIV_cycles %= 16384;
+    if (s->io_timer_DIV_cycles >= div_cycles_per_tick) {
+        s->io_timer_DIV_cycles %= div_cycles_per_tick;
         s->io_timer_DIV++;
+    }
+
+    if (s->io_timer_TAC & (1<<2)) { /* Timer enable */
+        s->io_timer_TIMA_cycles += op_cycles;
+        u32 timer_hz = GB_TIMA_FREQS[s->io_timer_TAC & 0x3];
+        u32 timer_cycles_per_tick = s->freq / timer_hz;
+        if (s->io_timer_TIMA_cycles >= timer_cycles_per_tick) {
+            s->io_timer_TIMA_cycles %= timer_cycles_per_tick;
+            s->io_timer_TIMA++;
+            if (s->io_timer_TIMA == 0) {
+                s->io_timer_TIMA = s->io_timer_TMA;
+                s->interrupts_request |= 1 << 2;
+            }
+        }
     }
 }
 

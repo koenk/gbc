@@ -99,6 +99,7 @@ struct gb_state
     u8 io_timer_DIV;
     u32 io_timer_DIV_cycles;
     u8 io_timer_TIMA;
+    u32 io_timer_TIMA_cycles;
     u8 io_timer_TMA;
     u8 io_timer_TAC;
 
