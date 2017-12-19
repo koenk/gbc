@@ -206,23 +206,26 @@ void cpu_reset_state(struct gb_state *s) {
 
 
 static void cpu_handle_interrupts(struct gb_state *s) {
-    /* Does NOT check for interupts enabled master. */
     u8 interrupts = s->interrupts_enable & s->interrupts_request;
 
     /*printf("Executing interrupt %d.\n", interrupts);*/
 
-    for (int i = 0; i < 5; i++) {
-        if (interrupts & (1 << i)) {
-            s->interrupts_master_enabled = 0;
-            s->interrupts_request ^= 1 << i;
+    if (s->interrupts_master_enabled) {
+        for (int i = 0; i < 5; i++) {
+            if (interrupts & (1 << i)) {
+                s->interrupts_master_enabled = 0;
+                s->interrupts_request ^= 1 << i;
 
-            mmu_push16(s, s->pc);
+                mmu_push16(s, s->pc);
 
-            s->pc = i * 0x8 + 0x40;
+                s->pc = i * 0x8 + 0x40;
 
-            s->halt_for_interrupts = 0;
-            return;
+                s->halt_for_interrupts = 0;
+                return;
+            }
         }
+    } else if (interrupts) {
+        s->halt_for_interrupts = 0;
     }
 }
 
@@ -423,10 +426,7 @@ int cpu_do_instruction(struct gb_state *s) {
     u8 op;
     int op_cycles;
 
-    if (s->interrupts_master_enabled && (s->interrupts_enable & s->interrupts_request)) {
-        cpu_handle_interrupts(s);
-        return 0; /* temp? */
-    }
+    cpu_handle_interrupts(s);
 
     op = mmu_read(s, s->pc++);
     op_cycles = cycles_per_instruction[op];
@@ -438,8 +438,8 @@ int cpu_do_instruction(struct gb_state *s) {
     s->cycles += op_cycles;
 
     if (s->halt_for_interrupts) {
-        if (!s->interrupts_master_enabled || !s->interrupts_enable) {
-            printf("Waiting for interrupts while disabled... Deadlock.\n");
+        if (!s->interrupts_enable) {
+            printf("Waiting for interrupts while none enabled, deadlock.\n");
             return 1;
         }
         s->pc--;
