@@ -245,6 +245,7 @@ void state_add_bios(struct gb_state *s, u8 *bios, size_t bios_size) {
  */
 void init_emu_state(struct gb_state *s) {
     s->emu_state = calloc(1, sizeof(struct emu_state));
+    s->emu_state->enable_sound = 0;
     s->emu_state->quit = 0;
     s->emu_state->make_savestate = 0;
     s->emu_state->lcd_line_needs_rerender = 0;

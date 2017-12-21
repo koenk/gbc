@@ -20,6 +20,7 @@ typedef int64_t s64;
 
 /* State of the emulator itself, not of the hardware. */
 struct emu_state {
+    char enable_sound;
     char quit;
     char make_savestate;
     char lcd_line_needs_rerender; /* Set at the end of every HBlank. */
@@ -133,7 +134,7 @@ struct gb_state
     u8 io_sound_channel3_level;
     u8 io_sound_channel3_freq_lo;
     u8 io_sound_channel3_freq_hi;
-    u8 io_sound_channel3_ram[0xf];
+    u8 io_sound_channel3_ram[0x10];
 
     u8 io_sound_channel4_length;
     u8 io_sound_channel4_envelope;

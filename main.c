@@ -67,14 +67,16 @@ struct emu_args {
     char *save_filename;
     char break_at_start;
     char print_disas;
+    char enable_sound;
 };
 
 void print_usage(char *progname) {
     printf("Usage: %s [option]... rom\n\n", progname);
     printf("GameBoy emulator by koenk.\n\n");
     printf("Options:\n");
-    printf(" -s, --break-start      Break into debugger before executing first "
+    printf(" -S, --break-start      Break into debugger before executing first "
             "instruction.\n");
+    printf(" -s, --sound            Enable (WIP) sound\n");
     printf(" -d, --print-disas      Print every instruction before executing "
             "it.\n");
     printf(" -b, --bios=FILE        Use the specified bios (default is no "
@@ -95,6 +97,7 @@ int parse_args(int argc, char **argv, struct emu_args *emu_args) {
     emu_args->save_filename = NULL;
     emu_args->break_at_start = 0;
     emu_args->print_disas = 0;
+    emu_args->enable_sound = 0;
 
     if (argc == 1) {
         print_usage(argv[0]);
@@ -103,7 +106,8 @@ int parse_args(int argc, char **argv, struct emu_args *emu_args) {
 
     while (1) {
         static struct option long_options[] = {
-            {"break-start",  no_argument,        0,  's'},
+            {"break-start",  no_argument,        0,  'S'},
+            {"sound",        no_argument,        0,  's'},
             {"print-disas",  no_argument,        0,  'd'},
             {"bios",         required_argument,  0,  'b'},
             {"load-state",   required_argument,  0,  'l'},
@@ -111,14 +115,18 @@ int parse_args(int argc, char **argv, struct emu_args *emu_args) {
             {0, 0, 0, 0}
         };
 
-        char c = getopt_long(argc, argv, "sdb:l:e:", long_options, NULL);
+        char c = getopt_long(argc, argv, "Ssdb:l:e:", long_options, NULL);
 
         if (c == -1)
             break;
 
         switch (c) {
-            case 's':
+            case 'S':
                 emu_args->break_at_start = 1;
+                break;
+
+            case 's':
+                emu_args->enable_sound = 1;
                 break;
 
             case 'd':
@@ -271,11 +279,20 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    if (emu_args.enable_sound)
+        if (audio_init(&gb_state)) {
+            printf("Couldn't initialize audio, exiting...\n");
+            return 1;
+        }
+
     if (emu_args.break_at_start)
         gb_state.emu_state->dbg_break_next = 1;
 
     if (emu_args.print_disas)
         gb_state.emu_state->dbg_print_disas = 1;
+
+    if (emu_args.enable_sound)
+        gb_state.emu_state->enable_sound = 1;
 
 
     printf("==========================\n");
@@ -315,7 +332,12 @@ int main(int argc, char *argv[]) {
             if (gb_state.emu_state->extram_dirty)
                 save(&gb_state, 1, save_filename_out);
             gb_state.emu_state->extram_dirty = 0;
+
+            /* TODO */
+            if (gb_state.emu_state->enable_sound)
+                audio_update(&gb_state);
         }
+
 
         if (gb_state.emu_state->make_savestate) {
             gb_state.emu_state->make_savestate = 0;

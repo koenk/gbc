@@ -273,7 +273,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 break;
             case 0xff26:
                 MMU_DEBUG_W("Sound enabled flags");
-                s->io_sound_enabled = value;
+                s->io_sound_enabled = (value & 0x80) | (s->io_sound_enabled & 0x7f);
                 break;
             case 0xff29:
                 /* Donkey Kong Land 3 accesses this... */
@@ -295,7 +295,8 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
             case 0xff3d:
             case 0xff3e:
             case 0xff3f:
-                MMU_DEBUG_W("Waveform pattern RAM");
+                MMU_DEBUG_W("Sound channel 3 wave pattern RAM");
+                s->io_sound_channel3_ram[location-0xff30] = value;
                 break;
             case 0xff40:
                 MMU_DEBUG_W("LCD Control");
