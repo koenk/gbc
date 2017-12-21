@@ -49,13 +49,16 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
         MMU_DEBUG_W("ROM bank number");
         if (value == 0)
             value = 1;
-        if (s->mbc == 1)
+
+        if (s->mbc == 0)
+            mmu_assert(value == 1);
+        else if (s->mbc == 1)
             value &= 0x1f;
         else if (s->mbc == 3)
             value &= 0x7f;
         else
             mmu_error("Area not implemented for this MBC (mbc=%d, loc=%.4x, val=%x)\n", s->mbc, location, value);
-        mmu_assert(value < s->mem_num_banks_rom);
+        mmu_assert(s->mbc == 0 || value < s->mem_num_banks_rom);
         s->mem_bank_rom = value;
         break;
     case 0x4000: /* 4000 - 5FFF */
@@ -464,7 +467,7 @@ u8 mmu_read(struct gb_state *s, u16 location) {
     case 0xa000: /* A000 - BFFF */
     case 0xb000:
         if (s->mbc == 1) {
-            MMU_DEBUG_R("EXTRAM (rom/ram: %d, B%d)", s->mem_mbc1_romram_select, s->mem_mbc1_ram_romupper);
+            MMU_DEBUG_R("EXTRAM (rom/ram: %d, B%d)", s->mem_mbc1_romram_select, s->mem_mbc1_extrambank);
             if (!s->has_extram)
                 return 0xff;
             if (s->mem_mbc1_romram_select == 1) { /* RAM mode */
