@@ -4,6 +4,7 @@
 #include <SDL2/SDL.h>
 
 #include "gui.h"
+#include "hwdefs.h"
 
 static SDL_Renderer *renderer;
 static SDL_Texture *texture;
@@ -20,7 +21,7 @@ int gui_init(void) {
 
     window = SDL_CreateWindow(GUI_WINDOW_TITLE,
             SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-            GUI_PX_WIDTH * GUI_ZOOM, GUI_PX_HEIGHT * GUI_ZOOM, 0);
+            GB_LCD_WIDTH * GUI_ZOOM, GB_LCD_HEIGHT * GUI_ZOOM, 0);
     if (!window){
         printf("LCD: SDL could not create window: %s\n", SDL_GetError());
         SDL_Quit();
@@ -34,20 +35,20 @@ int gui_init(void) {
         return 1;
     }
 
-    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, GUI_PX_WIDTH, GUI_PX_HEIGHT);
+    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, GB_LCD_WIDTH, GB_LCD_HEIGHT);
     if (!texture){
         printf("LCD: SDL could not create screen texture: %s\n", SDL_GetError());
         SDL_Quit();
         return 1;
     }
 
-    pixbuf = malloc(GUI_PX_WIDTH * GUI_PX_HEIGHT);
+    pixbuf = malloc(GB_LCD_WIDTH * GB_LCD_HEIGHT);
     if (!pixbuf) {
         printf("LCD: could not allocate pixel buffer\n");
         SDL_Quit();
         return 1;
     }
-    memset(pixbuf, 0, GUI_PX_WIDTH * GUI_PX_HEIGHT);
+    memset(pixbuf, 0, GB_LCD_WIDTH * GB_LCD_HEIGHT);
 
     return 0;
 }
@@ -87,7 +88,7 @@ void gui_render_current_line(struct gb_state *gb_state) {
 
     int y = gb_state->io_lcd_LY;
 
-    if (y >= GUI_PX_HEIGHT) /* VBlank */
+    if (y >= GB_LCD_HEIGHT) /* VBlank */
         return;
 
 
@@ -137,7 +138,7 @@ void gui_render_current_line(struct gb_state *gb_state) {
 
     /* Draw all background pixels of this line. */
     if (bg_enable) {
-        for (int x = 0; x < GUI_PX_WIDTH; x++) {
+        for (int x = 0; x < GB_LCD_WIDTH; x++) {
             int bg_x = (x + bg_scroll_x) % 256,
                 bg_y = (y + bg_scroll_y) % 256;
             int bg_tile_x = bg_x / 8,
@@ -163,17 +164,17 @@ void gui_render_current_line(struct gb_state *gb_state) {
                     (((b2 >> shift) & 1) << 1);
 
             u8 col = palette_get(bgwin_palette, colidx);
-            pixbuf[x + y * GUI_PX_WIDTH] = col;
+            pixbuf[x + y * GB_LCD_WIDTH] = col;
         }
     } else {
         /* Background disabled - set all pixels to 0 */
-        for (int x = 0; x < GUI_PX_WIDTH; x++)
-            pixbuf[x + y * GUI_PX_WIDTH] = 0;
+        for (int x = 0; x < GB_LCD_WIDTH; x++)
+            pixbuf[x + y * GB_LCD_WIDTH] = 0;
     }
 
     /* Draw the window for this line. */
     if (win_enable) {
-        for (int x = 0; x < GUI_PX_WIDTH; x++) {
+        for (int x = 0; x < GB_LCD_WIDTH; x++) {
             int win_x = x - win_pos_x + 7,
                 win_y = y - win_pos_y;
             int tile_x = win_x / 8,
@@ -202,12 +203,12 @@ void gui_render_current_line(struct gb_state *gb_state) {
                        (((b2 >> shift) & 1) << 1);
 
             u8 col = palette_get(bgwin_palette, colidx);
-            pixbuf[x + y * GUI_PX_WIDTH] = col;
+            pixbuf[x + y * GB_LCD_WIDTH] = col;
         }
     }
 
     /* Draw any sprites (objects) on this line. */
-    for (int x = 0; x < GUI_PX_WIDTH; x++) {
+    for (int x = 0; x < GB_LCD_WIDTH; x++) {
         for (int i = 0; i < num_objs; i++) {
             int obj_tileoff_x = x - (objs[i].x - 8),
                 obj_tileoff_y = y - (objs[i].y - 16);
@@ -229,11 +230,11 @@ void gui_render_current_line(struct gb_state *gb_state) {
 
             if (colidx != 0) {
                 if (objs[i].flags & (1<<7)) /* OBJ-to-BG prio */
-                    if (pixbuf[x + y * GUI_PX_WIDTH] > 0)
+                    if (pixbuf[x + y * GB_LCD_WIDTH] > 0)
                         continue;
                 u8 pal = objs[i].flags & (1<<4) ? obj_palette2 : obj_palette1;
                 u8 col = palette_get(pal, colidx);
-                pixbuf[x + y * GUI_PX_WIDTH] = col;
+                pixbuf[x + y * GB_LCD_WIDTH] = col;
             }
         }
     }
@@ -250,9 +251,9 @@ void gui_render_frame(struct gb_state *gb_state) {
     /* The colors stored in pixbuf already went through the palette translation
      * when rendering each line. */
     u32 palette[] = { 0xffffffff, 0xaaaaaaaa, 0x66666666, 0x11111111 };
-    for (int y = 0; y < GUI_PX_HEIGHT; y++)
-        for (int x = 0; x < GUI_PX_WIDTH; x++) {
-            int idx = x + y * GUI_PX_WIDTH;
+    for (int y = 0; y < GB_LCD_HEIGHT; y++)
+        for (int x = 0; x < GB_LCD_WIDTH; x++) {
+            int idx = x + y * GB_LCD_WIDTH;
             pixels[idx] = palette[pixbuf[idx]];
         }
 
