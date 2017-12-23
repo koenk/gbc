@@ -3,15 +3,17 @@
 #include "mmu.h"
 #include "debugger.h"
 
-#if 0
+#if 1
 #define MMU_DEBUG_W(fmt, ...) \
     do { \
-        printf(" [MMU] [W] " fmt " @%x: %x\n", ##__VA_ARGS__, location, value); \
+        if (s->emu_state->dbg_print_mmu) \
+            printf(" [MMU] [W] " fmt " @%x: %x\n", ##__VA_ARGS__, location, value); \
     } while(0)
 
 #define MMU_DEBUG_R(fmt, ...) \
     do { \
-        printf(" [MMU] [R] " fmt "\n", ##__VA_ARGS__); \
+        if (s->emu_state->dbg_print_mmu) \
+            printf(" [MMU] [R] " fmt "\n", ##__VA_ARGS__); \
     } while(0)
 #else
 #define MMU_DEBUG_W(...)

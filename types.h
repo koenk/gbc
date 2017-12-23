@@ -29,6 +29,7 @@ struct emu_state {
     char extram_dirty; /* Write battery-backed RAM periodically when dirty. */
     char dbg_break_next;
     char dbg_print_disas;
+    char dbg_print_mmu;
     u16 dbg_breakpoint;
 };
 

@@ -67,6 +67,7 @@ struct emu_args {
     char *save_filename;
     char break_at_start;
     char print_disas;
+    char print_mmu;
     char enable_sound;
 };
 
@@ -79,6 +80,7 @@ void print_usage(char *progname) {
     printf(" -s, --sound            Enable (WIP) sound\n");
     printf(" -d, --print-disas      Print every instruction before executing "
             "it.\n");
+    printf(" -m, --print-mmu        Print every memory access\n");
     printf(" -b, --bios=FILE        Use the specified bios (default is no "
             "bios).\n");
     printf(" -l, --load-state=FILE  Load the gamestate from a file (makes ROM "
@@ -97,6 +99,7 @@ int parse_args(int argc, char **argv, struct emu_args *emu_args) {
     emu_args->save_filename = NULL;
     emu_args->break_at_start = 0;
     emu_args->print_disas = 0;
+    emu_args->print_mmu = 0;
     emu_args->enable_sound = 0;
 
     if (argc == 1) {
@@ -109,13 +112,14 @@ int parse_args(int argc, char **argv, struct emu_args *emu_args) {
             {"break-start",  no_argument,        0,  'S'},
             {"sound",        no_argument,        0,  's'},
             {"print-disas",  no_argument,        0,  'd'},
+            {"print-mmu",    no_argument,        0,  'm'},
             {"bios",         required_argument,  0,  'b'},
             {"load-state",   required_argument,  0,  'l'},
             {"load-save",    required_argument,  0,  'e'},
             {0, 0, 0, 0}
         };
 
-        char c = getopt_long(argc, argv, "Ssdb:l:e:", long_options, NULL);
+        char c = getopt_long(argc, argv, "Ssdmb:l:e:", long_options, NULL);
 
         if (c == -1)
             break;
@@ -131,6 +135,10 @@ int parse_args(int argc, char **argv, struct emu_args *emu_args) {
 
             case 'd':
                 emu_args->print_disas = 1;
+                break;
+
+            case 'm':
+                emu_args->print_mmu = 1;
                 break;
 
             case 'b':
@@ -287,10 +295,10 @@ int main(int argc, char *argv[]) {
 
     if (emu_args.break_at_start)
         gb_state.emu_state->dbg_break_next = 1;
-
     if (emu_args.print_disas)
         gb_state.emu_state->dbg_print_disas = 1;
-
+    if (emu_args.print_mmu)
+        gb_state.emu_state->dbg_print_mmu = 1;
     if (emu_args.enable_sound)
         gb_state.emu_state->enable_sound = 1;
 
