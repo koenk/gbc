@@ -78,7 +78,12 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
             }
         } else if (s->mbc == 3) {
             MMU_DEBUG_W("EXTRAM bank number -OR- RTC register select");
-            mmu_assert(value < s->mem_num_banks_extram); /* TODO: RTC 08-0C */
+            if (value < 8)
+                mmu_assert(value < s->mem_num_banks_extram);
+            else {
+                mmu_assert(value <= 0xc); /* RTC is at 08-0C */
+                mmu_assert(s->has_rtc);
+            }
             s->mem_mbc3_extram_rtc_select = value;
         } else
             mmu_error("Area not implemented for this MBC (mbc=%d, loc=%.4x, val=%x)\n", s->mbc, location, value);
@@ -216,6 +221,9 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 MMU_DEBUG_W("Sound channel 1 freq hi");
                 s->io_sound_channel1_freq_hi = value;
                 break;
+            case 0xff15:
+                MMU_DEBUG_W("Sound channel 2 sweep (unused)");
+                break;
             case 0xff16:
                 MMU_DEBUG_W("Sound channel 2 length/pattern");
                 s->io_sound_channel2_length_pattern = value;
@@ -251,6 +259,9 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
             case 0xff1e:
                 MMU_DEBUG_W("Sound channel 3 freq hi");
                 s->io_sound_channel3_freq_hi = value;
+                break;
+            case 0xff1f:
+                MMU_DEBUG_W("Sound channel 4 sweep (unused)");
                 break;
             case 0xff20:
                 MMU_DEBUG_W("Sound channel 4 length");
@@ -362,6 +373,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 break;
             case 0xff4f:
                 MMU_DEBUG_W("VRAM Bank");
+                mmu_assert(s->gb_type == GB_TYPE_CGB);
                 s->mem_bank_vram = value & 1;
                 break;
             case 0xff50:
@@ -670,6 +682,7 @@ u8 mmu_read(struct gb_state *s, u16 location) {
                 return 0;
             case 0xff4f:
                 MMU_DEBUG_R("VRAM Bank");
+                mmu_assert(s->gb_type == GB_TYPE_CGB);
                 return s->mem_bank_vram & 1;
             case 0xff56:
                 MMU_DEBUG_R("Infrared");
