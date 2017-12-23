@@ -3,13 +3,7 @@
 #include <assert.h>
 #include <string.h>
 #include <getopt.h>
-
-/* Windows has no gettimeofday() (or sys/time.h for that matter). */
-#ifdef _MSC_VER
-    #include "wintime.h"
-#else
-    #include <sys/time.h>
-#endif
+#include <sys/time.h>
 
 #include "types.h"
 #include "state.h"
@@ -374,10 +368,6 @@ int main(int argc, char *argv[]) {
 
     printf("\nEmulated %f sec (%d instr) in %f sec WCT, %f%%.\n", emulated_secs,
             instr, exectime,  emulated_secs / exectime * 100);
-
-    #ifdef WIN32
-        while (1);
-    #endif
 
     return 0;
 }
