@@ -250,12 +250,16 @@ static void cpu_handle_LCD(struct gb_state *s, int op_cycles) {
             }
             s->io_lcd_LY = (s->io_lcd_LY + 1) % (GB_LCD_LY_MAX + 1);
             s->io_lcd_STAT = (s->io_lcd_STAT & 0xfb) | (s->io_lcd_LY == s->io_lcd_LYC);
+
+            /* We incremented line, check LY=LYC and set interrupt if needed. */
+            if (s->io_lcd_STAT & (1 << 6) && s->io_lcd_LY == s->io_lcd_LYC)
+                s->interrupts_request |= 1 << 1;
             break;
         case 1: /* VBlank, Back to OAM (2) */
             s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 2;
             s->lcd_mode_clks_left = GB_LCD_MODE_2_CLKS;
             break;
-        case 2: /* OAM, onto OAM+VRAM (3) */
+        case 2: /* OAM, onto line drawing (OAM+VRAM busy) (3) */
             s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 3;
             s->lcd_mode_clks_left = GB_LCD_MODE_3_CLKS;
             break;
@@ -265,19 +269,18 @@ static void cpu_handle_LCD(struct gb_state *s, int op_cycles) {
             s->emu_state->lcd_line_needs_rerender = 1;
             break;
         }
+
+        /* We switched mode, trigger interrupt if requested. */
+        u8 newmode = s->io_lcd_STAT & 3;
+        if (s->io_lcd_STAT & (1 << 5) && newmode == 2) /* OAM (2) int */
+            s->interrupts_request |= 1 << 1;
+        if (s->io_lcd_STAT & (1 << 4) && newmode == 1) /* V-Blank (1) int */
+            s->interrupts_request |= 1 << 1;
+        if (s->io_lcd_STAT & (1 << 3) && newmode == 0) /* H-Blank (0) int */
+            s->interrupts_request |= 1 << 1;
     }
 
-    if (s->io_lcd_STAT & (1 << 6) && s->io_lcd_STAT & (1 << 2)) /* LY=LYC int */
-        s->interrupts_request |= 1 << 1;
 
-    if (s->io_lcd_STAT & (1 << 5) && (s->io_lcd_STAT & 3) == 2) /* Mode 2 int */
-        s->interrupts_request |= 1 << 1;
-
-    if (s->io_lcd_STAT & (1 << 4) && (s->io_lcd_STAT & 3) == 1) /* Mode 1 int */
-        s->interrupts_request |= 1 << 1;
-
-    if (s->io_lcd_STAT & (1 << 3) && (s->io_lcd_STAT & 3) == 0) /* Mode 0 int */
-        s->interrupts_request |= 1 << 1;
 }
 
 static void cpu_handle_timer(struct gb_state *s, int op_cycles) {
