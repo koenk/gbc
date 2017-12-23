@@ -15,6 +15,15 @@
 void print_rom_header_info(u8* rom) {
     printf("Title: %s\n", &rom[ROMHDR_TITLE]);
 
+    u8 cart_cgb_flag = rom[ROMHDR_CGBFLAG];
+    if (cart_cgb_flag & 0x80) {
+        if ((cart_cgb_flag & 0xc0) == 0xc0)
+            printf("CGB: yes (needed)\n");
+        else
+            printf("CGB: yes (optional)\n");
+    } else
+        printf("CGB: no\n");
+
     printf("Cart type: ");
     u8 cart_type = rom[ROMHDR_CARTTYPE];
     switch(cart_type) {
@@ -76,6 +85,7 @@ void print_rom_header_info(u8* rom) {
 }
 
 struct rominfo {
+    enum gb_type gb_type;
     int mbc;
     char has_extram:1;
     char has_battery:1;
@@ -87,8 +97,7 @@ struct rominfo {
 };
 
 
-int rom_get_info(u8 *rom, size_t rom_size, enum gb_type rom_gb_type,
-        struct rominfo *ret_rominfo) {
+int rom_get_info(u8 *rom, size_t rom_size, struct rominfo *ret_rominfo) {
 
     /* Cart info from header */
     if (ROMHDR_CARTTYPE >= rom_size ||
@@ -99,7 +108,9 @@ int rom_get_info(u8 *rom, size_t rom_size, enum gb_type rom_gb_type,
     u8 hdr_cart_type = rom[ROMHDR_CARTTYPE];
     u8 hdr_rom_size = rom[ROMHDR_ROMSIZE];
     u8 hdr_extram_size = rom[ROMHDR_EXTRAMSIZE];
+    u8 hdr_cgb_flag = rom[ROMHDR_CGBFLAG];
 
+    enum gb_type rom_gb_type;
     int mbc = 0; /* Memory Bank Controller */
     int extram = 0;
     int battery = 0;
@@ -108,6 +119,11 @@ int rom_get_info(u8 *rom, size_t rom_size, enum gb_type rom_gb_type,
     int extram_banks = 0;
     int wram_banks = 0;
     int vram_banks = 0;
+
+    if (hdr_cgb_flag & 0x80)
+        rom_gb_type = GB_TYPE_CGB;
+    else
+        rom_gb_type = GB_TYPE_GB;
 
     switch (hdr_cart_type) {
     case 0x00:                                              break;
@@ -173,6 +189,9 @@ int rom_get_info(u8 *rom, size_t rom_size, enum gb_type rom_gb_type,
     if (rom_gb_type == GB_TYPE_GB) {
         wram_banks = 2;
         vram_banks = 1;
+    } else if (rom_gb_type == GB_TYPE_CGB) {
+        wram_banks = 8;
+        vram_banks = 2;
     } else {
         err("Unsupported GB type: %d", rom_gb_type);
     }
@@ -185,20 +204,21 @@ int rom_get_info(u8 *rom, size_t rom_size, enum gb_type rom_gb_type,
     ret_rominfo->num_wram_banks = wram_banks;
     ret_rominfo->num_extram_banks = extram_banks;
     ret_rominfo->num_vram_banks = vram_banks;
+    ret_rominfo->gb_type = rom_gb_type;
 
     return 0;
 }
 
-int state_new_from_rom(struct gb_state *s, u8 *rom, size_t rom_size,
-    enum gb_type rom_gb_type) {
+int state_new_from_rom(struct gb_state *s, u8 *rom, size_t rom_size) {
 
-    if (rom_gb_type != GB_TYPE_GB)
-        err("Unsupported GB type: %d", rom_gb_type);
-    s->gb_type = rom_gb_type;
 
     struct rominfo rominfo;
-    if (rom_get_info(rom, rom_size, rom_gb_type, &rominfo))
+    if (rom_get_info(rom, rom_size, &rominfo))
         err("Error retrieving rom info");
+
+    if (rominfo.gb_type != GB_TYPE_GB && rominfo.gb_type != GB_TYPE_CGB)
+        err("Unsupported GB type: %d", rominfo.gb_type);
+    s->gb_type = rominfo.gb_type;
 
     s->mbc = rominfo.mbc;
     s->has_extram = rominfo.has_extram;

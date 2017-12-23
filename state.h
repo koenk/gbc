@@ -4,8 +4,7 @@
 #include "types.h"
 
 void print_rom_header_info(u8* rom);
-int state_new_from_rom(struct gb_state *s, u8 *rom, size_t rom_size,
-    enum gb_type rom_gb_type);
+int state_new_from_rom(struct gb_state *s, u8 *rom, size_t rom_size);
 void state_add_bios(struct gb_state *s, u8 *bios, size_t bios_size);
 void init_emu_state(struct gb_state *s);
 

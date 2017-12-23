@@ -196,8 +196,6 @@ int main(int argc, char *argv[]) {
     char state_filename_out[1024];
     char save_filename_out[1024];
 
-    enum gb_type gb_type = GB_TYPE_GB;
-
     struct emu_args emu_args;
     if (parse_args(argc, argv, &emu_args))
         exit(1);
@@ -229,7 +227,7 @@ int main(int argc, char *argv[]) {
 
         print_rom_header_info(rom);
 
-        if (state_new_from_rom(&gb_state, rom, rom_size, gb_type)) {
+        if (state_new_from_rom(&gb_state, rom, rom_size)) {
             fprintf(stderr, "Error loading ROM \"%s\", aborting.\n",
                     emu_args.rom_filename);
             exit(1);
