@@ -143,16 +143,16 @@ struct gb_state
 
 
     int mem_bank_rom, mem_num_banks_rom;
-    int mem_bank_ram, mem_num_banks_ram;
+    int mem_bank_wram, mem_num_banks_wram;
     int mem_bank_extram, mem_num_banks_extram;
     int mem_bank_vram, mem_num_banks_vram;
     u8 mem_mbc1_rombankupper; /* MBC1 - Upper bits ROM bank (if selected). */
     u8 mem_mbc1_extrambank; /* MBC1 - EXT_RAM bank (if selected). */
     u8 mem_mbc1_romram_select; /* MBC1 - Mode for above field (ROM/RAM). */
-    u8 mem_mbc3_ram_rtc_select;
+    u8 mem_mbc3_extram_rtc_select;
 
     u8 *mem_ROM; /* Between 16K and 4M (banked) */
-    u8 *mem_RAM; /* Internal RAM (WRAM), 8K non-CGB, 32K CGB (banked) */
+    u8 *mem_WRAM; /* Internal RAM (WRAM), 8K non-CGB, 32K CGB (banked) */
     u8 *mem_EXTRAM; /* External (cartridge) RAM, optional, max 32K (banked) */
     u8 *mem_VRAM; /* Video RAM, 8K non-CGB, 16K CGB (banked) */
     u8 mem_OAM[0xa0]; /* Sprite/Object attributes */

@@ -81,7 +81,7 @@ struct rominfo {
     char has_battery:1;
     char has_rtc:1;
     int num_rom_banks;
-    int num_ram_banks;
+    int num_wram_banks;
     int num_extram_banks;
     int num_vram_banks;
 };
@@ -106,7 +106,7 @@ int rom_get_info(u8 *rom, size_t rom_size, enum gb_type rom_gb_type,
     int rtc = 0; /* Real time clock */
     int rom_banks = 0;
     int extram_banks = 0;
-    int ram_banks = 0;
+    int wram_banks = 0;
     int vram_banks = 0;
 
     switch (hdr_cart_type) {
@@ -171,7 +171,7 @@ int rom_get_info(u8 *rom, size_t rom_size, enum gb_type rom_gb_type,
            (extram == 1 && extram_banks > 0));
 
     if (rom_gb_type == GB_TYPE_GB) {
-        ram_banks = 2;
+        wram_banks = 2;
         vram_banks = 1;
     } else {
         err("Unsupported GB type: %d", rom_gb_type);
@@ -182,7 +182,7 @@ int rom_get_info(u8 *rom, size_t rom_size, enum gb_type rom_gb_type,
     ret_rominfo->has_battery = battery;
     ret_rominfo->has_rtc = rtc;
     ret_rominfo->num_rom_banks = rom_banks;
-    ret_rominfo->num_ram_banks = ram_banks;
+    ret_rominfo->num_wram_banks = wram_banks;
     ret_rominfo->num_extram_banks = extram_banks;
     ret_rominfo->num_vram_banks = vram_banks;
 
@@ -206,17 +206,17 @@ int state_new_from_rom(struct gb_state *s, u8 *rom, size_t rom_size,
     s->has_rtc = rominfo.has_rtc;
 
     s->mem_num_banks_rom = rominfo.num_rom_banks;
-    s->mem_num_banks_ram = rominfo.num_ram_banks;
+    s->mem_num_banks_wram = rominfo.num_wram_banks;
     s->mem_num_banks_extram = rominfo.num_extram_banks;
     s->mem_num_banks_vram = rominfo.num_vram_banks;
 
     s->mem_ROM = NULL;
-    s->mem_RAM = NULL;
+    s->mem_WRAM = NULL;
     s->mem_EXTRAM = NULL;
     s->mem_VRAM = NULL;
 
     s->mem_ROM = malloc(ROM_BANKSIZE * s->mem_num_banks_rom);
-    s->mem_RAM = malloc(RAM_BANKSIZE * s->mem_num_banks_ram);
+    s->mem_WRAM = malloc(WRAM_BANKSIZE * s->mem_num_banks_wram);
     if (s->mem_num_banks_extram)
         s->mem_EXTRAM = malloc(EXTRAM_BANKSIZE * s->mem_num_banks_extram);
     s->mem_VRAM = malloc(VRAM_BANKSIZE * s->mem_num_banks_vram);
@@ -259,11 +259,11 @@ void init_emu_state(struct gb_state *s) {
 /*
  * Dump the current state of the gameboy into a buffer. This function allocates
  * a buffer large enough to hold `struct gb_state` and all the memory of the
- * gameboy (ROM, RAM, EXT_RAM, VRAM).
+ * gameboy (ROM, WRAM, EXT_RAM, VRAM).
  */
 int state_save(struct gb_state *s, u8 **ret_state_buf, size_t *ret_state_size) {
     size_t rom_size = ROM_BANKSIZE * s->mem_num_banks_rom;
-    size_t ram_size = RAM_BANKSIZE * s->mem_num_banks_ram;
+    size_t wram_size = WRAM_BANKSIZE * s->mem_num_banks_wram;
     size_t extram_size = EXTRAM_BANKSIZE * s->mem_num_banks_extram;
     size_t vram_size = VRAM_BANKSIZE * s->mem_num_banks_vram;
 
@@ -273,7 +273,7 @@ int state_save(struct gb_state *s, u8 **ret_state_buf, size_t *ret_state_size) {
     }
 
     size_t state_size = sizeof(u32) + sizeof(struct gb_state) + rom_size +
-        ram_size + extram_size + vram_size;
+        wram_size + extram_size + vram_size;
     u8 *state_buf = malloc(state_size);
 
     u32 *hdr = (u32*)state_buf;
@@ -281,12 +281,12 @@ int state_save(struct gb_state *s, u8 **ret_state_buf, size_t *ret_state_size) {
     struct gb_state *ts = (struct gb_state*)(&hdr[1]);
     *ts = *s;
     u8 *rom_start = (u8*)(ts + 1);
-    u8 *ram_start = rom_start + rom_size;
-    u8 *extram_start = ram_start + ram_size;
+    u8 *wram_start = rom_start + rom_size;
+    u8 *extram_start = wram_start + wram_size;
     u8 *vram_start = extram_start + extram_size;
 
     memcpy(rom_start, s->mem_ROM, rom_size);
-    memcpy(ram_start, s->mem_RAM, ram_size);
+    memcpy(wram_start, s->mem_WRAM, wram_size);
     memcpy(extram_start, s->mem_EXTRAM, extram_size);
     memcpy(vram_start, s->mem_VRAM, vram_size);
 
@@ -304,7 +304,7 @@ int state_save(struct gb_state *s, u8 **ret_state_buf, size_t *ret_state_size) {
  * gb_state`).
  *
  * This function allocates memory for the underlying buffers of the `struct
- * gb_state` that form the memory of the gameboy (ROM, RAM, EXT_RAM, VRAM).
+ * gb_state` that form the memory of the gameboy (ROM, WRAM, EXT_RAM, VRAM).
  */
 int state_load(struct gb_state *s, u8 *state_buf, size_t state_buf_size) {
     assert(state_buf_size >= sizeof(u32));
@@ -328,18 +328,18 @@ int state_load(struct gb_state *s, u8 *state_buf, size_t state_buf_size) {
     u8 *romstart = (u8*)(fs + 1);
     memcpy(s->mem_ROM, romstart, romsize);
 
-    size_t ramsize = RAM_BANKSIZE * s->mem_num_banks_ram;
-    assert(state_buf_size >= ramsize);
-    state_buf_size -= ramsize;
-    s->mem_RAM = malloc(ramsize);
-    u8 *ramstart = romstart + romsize;
-    memcpy(s->mem_RAM, ramstart, ramsize);
+    size_t wramsize = WRAM_BANKSIZE * s->mem_num_banks_wram;
+    assert(state_buf_size >= wramsize);
+    state_buf_size -= wramsize;
+    s->mem_WRAM = malloc(wramsize);
+    u8 *wramstart = romstart + romsize;
+    memcpy(s->mem_WRAM, wramstart, wramsize);
 
     size_t extramsize = EXTRAM_BANKSIZE * s->mem_num_banks_extram;
     assert(state_buf_size >= extramsize);
     state_buf_size -= extramsize;
     s->mem_EXTRAM = malloc(extramsize);
-    u8 *extramstart = ramstart + ramsize;
+    u8 *extramstart = wramstart + wramsize;
     memcpy(s->mem_EXTRAM, extramstart, extramsize);
 
     size_t vramsize = VRAM_BANKSIZE * s->mem_num_banks_vram;

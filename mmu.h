@@ -9,8 +9,8 @@
  *  $4000-$7FFF	ROM (bank 1..n, switchable)
  *  $8000-$9FFF	VRAM (bank 0 non-CGB, bank 0-1 on CGB)
  *  $A000-$BFFF	External RAM (cartridge, optional)
- *  $C000-$CFFF	Internal RAM (bank 0)
- *  $D000-$DFFF	Internal RAM (bank 1-7, switchable, CGB only)
+ *  $C000-$CFFF	Internal WRAM (bank 0)
+ *  $D000-$DFFF	Internal WRAM (bank 1-7, switchable, CGB only)
  *  $E000-$FDFF	Echo RAM (reserved)
  *  $FE00-$FE9F	OAM - Object Attribute Memory
  *  $FEA0-$FEFF	Unusable
@@ -25,7 +25,7 @@
 #define ROMHDR_EXTRAMSIZE   0x149
 
 #define ROM_BANKSIZE        0x4000 /* 16K */
-#define RAM_BANKSIZE        0x1000 /* 4K */
+#define WRAM_BANKSIZE       0x1000 /* 4K */
 #define VRAM_BANKSIZE       0x2000 /* 8K */
 #define EXTRAM_BANKSIZE     0x2000 /* 8K */
 

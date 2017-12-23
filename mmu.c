@@ -76,8 +76,8 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
             }
         } else if (s->mbc == 3) {
             MMU_DEBUG_W("EXTRAM bank number -OR- RTC register select");
-            mmu_assert(value < s->mem_num_banks_ram); /* TODO: RTC 08-0C */
-            s->mem_mbc3_ram_rtc_select = value;
+            mmu_assert(value < s->mem_num_banks_extram); /* TODO: RTC 08-0C */
+            s->mem_mbc3_extram_rtc_select = value;
         } else
             mmu_error("Area not implemented for this MBC (mbc=%d, loc=%.4x, val=%x)\n", s->mbc, location, value);
         break;
@@ -121,23 +121,23 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
             s->emu_state->extram_dirty = 1;
         } else if (s->mbc == 3) {
             MMU_DEBUG_W("EXTRAM (sw)/RTC (B%d)", s->mem_mbc3_ram_rtc_select);
-            if (s->mem_mbc3_ram_rtc_select < 0x04) {
-                s->mem_EXTRAM[s->mem_mbc3_ram_rtc_select * EXTRAM_BANKSIZE + location - 0xa000] = value;
+            if (s->mem_mbc3_extram_rtc_select < 0x04) {
+                s->mem_EXTRAM[s->mem_mbc3_extram_rtc_select * EXTRAM_BANKSIZE + location - 0xa000] = value;
                 s->emu_state->extram_dirty = 1;
-            } else if (s->mem_mbc3_ram_rtc_select >= 0x08 && s->mem_mbc3_ram_rtc_select <= 0x0c)
-                s->mem_RTC[s->mem_mbc3_ram_rtc_select - 0xa008] = value;
+            } else if (s->mem_mbc3_extram_rtc_select >= 0x08 && s->mem_mbc3_extram_rtc_select <= 0x0c)
+                s->mem_RTC[s->mem_mbc3_extram_rtc_select - 0xa008] = value;
             else
-                mmu_error("Writing to extram/rtc with invalid selection (%d) @%x, val=%x", s->mem_mbc3_ram_rtc_select, location, value);
+                mmu_error("Writing to extram/rtc with invalid selection (%d) @%x, val=%x", s->mem_mbc3_extram_rtc_select, location, value);
         } else
             mmu_error("Area not implemented for this MBC (mbc=%d, loc=%.4x, val=%x)\n", s->mbc, location, value);
         break;
     case 0xc000: /* C000 - CFFF */
-        MMU_DEBUG_W("RAM B0");
-        s->mem_RAM[location - 0xc000] = value;
+        MMU_DEBUG_W("WRAM B0");
+        s->mem_WRAM[location - 0xc000] = value;
         break;
     case 0xd000: /* D000 - DFFF */
-        MMU_DEBUG_W("RAM B%d", s->mem_bank_ram);
-        s->mem_RAM[s->mem_bank_ram * RAM_BANKSIZE + location - 0xd000] = value;
+        MMU_DEBUG_W("WRAM B%d", s->mem_bank_ram);
+        s->mem_WRAM[s->mem_bank_wram * WRAM_BANKSIZE + location - 0xd000] = value;
         break;
     case 0xe000: /* E000 - FDFF */
         mmu_error("Writing to ECHO area (0xc00-0xfdff) @%x, val=%x", location, value);
@@ -393,13 +393,11 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 break;
             case 0xff70:
                 MMU_DEBUG_W("RAM Bank");
+                mmu_assert(s->gb_type == GB_TYPE_CGB);
                 if (value == 0)
-                    s->mem_bank_ram = 1;
-                else if (value < 8)
-                    s->mem_bank_ram = value;
-                else {
-                    mmu_error("Selecting invalid ROM bank %d (@%x)", value, location);
-                }
+                    value = 1;
+                mmu_assert(value < s->mem_num_banks_wram);
+                s->mem_bank_wram = value;
                 break;
             case 0xff7f:
                 MMU_DEBUG_W("UNKNOWN I/O port (tetris hack)");
@@ -477,22 +475,22 @@ u8 mmu_read(struct gb_state *s, u16 location) {
                 return s->mem_EXTRAM[location - 0xa000];
         } else if (s->mbc == 3) {
             MMU_DEBUG_R("EXTRAM (sw)/RTC (B%d)", s->mem_mbc3_ram_rtc_select);
-            if (s->mem_mbc3_ram_rtc_select < 0x04)
-                return s->mem_EXTRAM[s->mem_mbc3_ram_rtc_select * EXTRAM_BANKSIZE + location - 0xa000];
-            else if (s->mem_mbc3_ram_rtc_select >= 0x08 && s->mem_mbc3_ram_rtc_select <= 0x0c)
-                return s->mem_RTC[s->mem_mbc3_ram_rtc_select - 0xa008];
+            if (s->mem_mbc3_extram_rtc_select < 0x04)
+                return s->mem_EXTRAM[s->mem_mbc3_extram_rtc_select * EXTRAM_BANKSIZE + location - 0xa000];
+            else if (s->mem_mbc3_extram_rtc_select >= 0x08 && s->mem_mbc3_extram_rtc_select <= 0x0c)
+                return s->mem_RTC[s->mem_mbc3_extram_rtc_select - 0xa008];
             else
-                mmu_error("Reading from extram/rtc with invalid selection (%d) @%x", s->mem_mbc3_ram_rtc_select, location);
+                mmu_error("Reading from extram/rtc with invalid selection (%d) @%x", s->mem_mbc3_extram_rtc_select, location);
         } else
             mmu_error("Area not implemented for this MBC (mbc=%d, location=%.4x)\n", s->mbc, location);
 
         return 0;
     case 0xc000: /* C000 - CFFF */
-        //MMU_DEBUG_R("RAM B0  @%x", (location - 0xc000));
-        return s->mem_RAM[location - 0xc000];
+        //MMU_DEBUG_R("WRAM B0  @%x", (location - 0xc000));
+        return s->mem_WRAM[location - 0xc000];
     case 0xd000: /* D000 - DFFF */
-        MMU_DEBUG_R("RAM B%d @%x", s->mem_bank_ram, location - 0xd000);
-        return s->mem_RAM[s->mem_bank_ram * RAM_BANKSIZE + location - 0xd000];
+        MMU_DEBUG_R("WRAM B%d @%x", s->mem_bank_ram, location - 0xd000);
+        return s->mem_WRAM[s->mem_bank_wram * WRAM_BANKSIZE + location - 0xd000];
     case 0xe000: /* E000 - FDFF */
         mmu_error("Reading from ECHO (0xc000 - 0xddff) B0: %x", location);
         return 0;
@@ -675,8 +673,8 @@ u8 mmu_read(struct gb_state *s, u16 location) {
                 MMU_DEBUG_R("Infrared");
                 return s->io_infrared;
             case 0xff70:
-                MMU_DEBUG_R("RAM bank");
-                return s->mem_bank_ram;
+                MMU_DEBUG_R("WRAM bank");
+                return s->mem_bank_wram;
             }
 
             mmu_error("Reading from unknown IO port @%.4x", location);

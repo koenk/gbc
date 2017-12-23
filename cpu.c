@@ -177,16 +177,16 @@ void cpu_reset_state(struct gb_state *s) {
 
 
     s->mem_bank_rom = 1;
-    s->mem_bank_ram = 1;
+    s->mem_bank_wram = 1;
     s->mem_bank_extram = 0;
     s->mem_bank_vram = 0;
 
     s->mem_mbc1_extrambank = 0;
     s->mem_mbc1_rombankupper = 0;
     s->mem_mbc1_romram_select = 0;
-    s->mem_mbc3_ram_rtc_select = 0;
+    s->mem_mbc3_extram_rtc_select = 0;
 
-    memset(s->mem_RAM, 0, s->mem_num_banks_ram * RAM_BANKSIZE);
+    memset(s->mem_WRAM, 0, s->mem_num_banks_wram * WRAM_BANKSIZE);
     memset(s->mem_EXTRAM, 0, s->mem_num_banks_extram * EXTRAM_BANKSIZE);
     memset(s->mem_VRAM, 0, s->mem_num_banks_vram * VRAM_BANKSIZE);
     memset(s->mem_OAM, 0, 0xa0);
