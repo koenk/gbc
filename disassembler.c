@@ -14,8 +14,8 @@ static const char *registers[] =
   { "B", "C", "D", "E", "H", "L", "(HL)", "A" };
 
 static const char *registers16[] =
-  { "BC", "DE", "HL", "SP", // for some operations
-    "BC", "DE", "HL", "AF" }; // for push/pop
+  { "BC", "DE", "HL", "SP", /* for some operations */
+    "BC", "DE", "HL", "AF" }; /* for push/pop */
 
 static const char *conditions[] =
   { "NZ", "Z", "NC", "C" };
@@ -115,7 +115,7 @@ int disassemble_pc(struct gb_state* s, u16 pc) {
     const char *mnem = NULL;
 
     if (opcode == 0xcb) {
-        // extended instruction
+        /* extended instruction */
         op = cbOpcodes;
         opcode = mmu_read(s, pc++);
     } else {
@@ -138,44 +138,44 @@ int disassemble_pc(struct gb_state* s, u16 pc) {
         if (*mnem == '%') {
             mnem++;
             switch(*mnem) {
-            case 'B': // Single byte
+            case 'B': /* Single byte */
                 temp1 = mmu_read(s, pc++);
                 printf("0x%x", temp1);
                 break;
-            case 'W': // Word (two bytes)
+            case 'W': /* Word (two bytes) */
                 temp1 = mmu_read(s, pc++);
                 temp2 = mmu_read(s, pc++);
                 printf("0x%x", temp1 | (temp2 << 8));
                 break;
-            case 'd': // Signed displacement (one byte)
+            case 'd': /* Signed displacement (one byte) */
                 stemp = mmu_read(s, pc++);
                 printf("%d", stemp);
                 break;
-            case 'n': // Single byte, no 0x prefix
+            case 'n': /* Single byte, no 0x prefix */
                 temp1 = mmu_read(s, pc++);
                 printf("%02x", temp1);
                 break;
-            case 'r': // Register name
+            case 'r': /* Register name */
                 temp1 = *(++mnem) - '0';
                 printf("%s", registers[(opcode >> temp1) & 7]);
                 break;
-            case 'R': // 16 bit register name (double reg)
+            case 'R': /* 16 bit register name (double reg) */
                 temp1 = *(++mnem) - '0';
                 printf("%s", registers16[(opcode >> temp1) & 3]);
                 break;
-            case 't': // 16 bit register name (double reg) for push/pop
+            case 't': /* 16 bit register name (double reg) for push/pop */
                 temp1 = *(++mnem) - '0';
                 printf("%s", registers16[4 + ((opcode >> temp1) & 3)]);
                 break;
-            case 'c': // condition flag name
+            case 'c': /* condition flag name */
                 temp1 = *(++mnem) - '0';
                 printf("%s", conditions[(opcode >> temp1) & 3]);
                 break;
-            case 'b': // bit number of CB bit instruction
+            case 'b': /* bit number of CB bit instruction */
                 temp1 = (opcode >> 3) & 7;
                 printf("%x", temp1);
                 break;
-            case 'P': // RST address
+            case 'P': /* RST address */
                 temp1 = ((opcode >> 3) & 7) * 8;
                 printf("0x%x", temp1);
                 break;

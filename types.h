@@ -182,7 +182,7 @@ struct gb_state
     u8 mem_HRAM[0x7f];
 
     u8 mem_latch_rtc;
-    u8 mem_RTC[0x05]; // 0x08 - 0x0c
+    u8 mem_RTC[0x05]; /* Real time clock, select by extram banks 0x08-0x0c */
 
     /* Cartridge hardware (including memory bank controller) */
     int mbc;
