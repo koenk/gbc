@@ -322,7 +322,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (gb_state.emu_state->lcd_screen_needs_rerender) {
-            gui_render_frame(&gb_state);
+            gui_render_frame(gb_state.gb_type == GB_TYPE_CGB);
             gb_state.emu_state->lcd_screen_needs_rerender = 0;
 
             if (gui_handleinputs(&gb_state))

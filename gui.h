@@ -11,7 +11,7 @@ void audio_update(struct gb_state *s);
 
 int gui_init(void);
 void gui_render_current_line(struct gb_state *gb_state);
-void gui_render_frame(struct gb_state *gb_state);
+void gui_render_frame(char use_colors);
 int gui_handleinputs(struct gb_state *gb_state);
 
 #endif

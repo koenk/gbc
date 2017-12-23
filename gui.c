@@ -10,7 +10,7 @@ static SDL_Renderer *renderer;
 static SDL_Texture *texture;
 static SDL_AudioDeviceID audio_dev;
 
-static u8 *pixbuf;
+static u16 *pixbuf;
 static u8 *sndbuf;
 
 static const int SAMPLE_RATE = 44100;
@@ -161,13 +161,13 @@ int gui_init(void) {
         return 1;
     }
 
-    pixbuf = malloc(GB_LCD_WIDTH * GB_LCD_HEIGHT);
+    pixbuf = malloc(GB_LCD_WIDTH * GB_LCD_HEIGHT * sizeof(u16));
     if (!pixbuf) {
         printf("LCD: could not allocate pixel buffer\n");
         SDL_Quit();
         return 1;
     }
-    memset(pixbuf, 0, GB_LCD_WIDTH * GB_LCD_HEIGHT);
+    memset(pixbuf, 0, GB_LCD_WIDTH * GB_LCD_HEIGHT * sizeof(u16));
 
     return 0;
 }
@@ -179,8 +179,13 @@ struct __attribute__((__packed__)) OAMentry {
     u8 flags;
 };
 
-u8 palette_get(u8 palette, u8 col) {
-    return (palette >> (col << 1)) & 0x3;
+u16 palette_get_col(u8 *palettedata, u8 palidx, u8 colidx) {
+    u8 idx = palidx * 8 + colidx * 2;
+    return palettedata[idx] | (palettedata[idx + 1] << 8);
+}
+
+u8 palette_get_gray(u8 palette, u8 colidx) {
+    return (palette >> (colidx << 1)) & 0x3;
 }
 
 void gui_render_current_line(struct gb_state *gb_state) {
@@ -210,6 +215,7 @@ void gui_render_current_line(struct gb_state *gb_state) {
     if (y >= GB_LCD_HEIGHT) /* VBlank */
         return;
 
+    u8 use_col = gb_state->gb_type == GB_TYPE_CGB;
 
     u8 winmap_high       = (gb_state->io_lcd_LCDC & (1<<6)) ? 1 : 0;
     u8 win_enable        = (gb_state->io_lcd_LCDC & (1<<5)) ? 1 : 0;
@@ -262,12 +268,18 @@ void gui_render_current_line(struct gb_state *gb_state) {
                 bg_y = (y + bg_scroll_y) % 256;
             int bg_tile_x = bg_x / 8,
                 bg_tile_y = bg_y / 8;
+            int bg_idx = bg_tile_x + bg_tile_y * 32;
             int bg_tileoff_x = bg_x % 8,
                 bg_tileoff_y = bg_y % 8;
 
-            u8 bg_tile_idx_raw = bgmap[bg_tile_x + bg_tile_y * 32];
-            s16 bg_tile_idx = bgwin_tilemap_unsigned ? (s16)(u16)bg_tile_idx_raw :
-                                                    (s16)(s8)bg_tile_idx_raw;
+            u8 tile_idx_raw = bgmap[bg_idx];
+            s16 tile_idx = bgwin_tilemap_unsigned ? (s16)(u16)tile_idx_raw :
+                                                    (s16)(s8)tile_idx_raw;
+
+            /* BG tile attrs are only available on CGB, and are at same location
+             * as tile numbers but in bank 1 instead of 0. */
+            u8 attr = use_col ?  bgmap[bg_idx + VRAM_BANKSIZE] : 0;
+            u8 vram_bank = (attr & (1<<3)) ? 1 : 0;
 
             /* We have packed 2-bit color indices here, so the bits look like:
             * (each bit denoted by the pixel index in tile)
@@ -277,12 +289,20 @@ void gui_render_current_line(struct gb_state *gb_state) {
             */
             int bg_tileoff = bg_tileoff_x + bg_tileoff_y * 8;
             int shift = 7 - bg_tileoff % 8;
-            u8 b1 = bgwin_tiledata[bg_tile_idx * 16 + bg_tileoff/8*2];
-            u8 b2 = bgwin_tiledata[bg_tile_idx * 16 + bg_tileoff/8*2 + 1];
+            int tiledata_off = tile_idx * 16 + bg_tileoff/8*2;
+            if (vram_bank)
+                tiledata_off += VRAM_BANKSIZE;
+            u8 b1 = bgwin_tiledata[tiledata_off];
+            u8 b2 = bgwin_tiledata[tiledata_off + 1];
             u8 colidx = ((b1 >> shift) & 1) |
                     (((b2 >> shift) & 1) << 1);
 
-            u8 col = palette_get(bgwin_palette, colidx);
+            u16 col = 0;
+            if (use_col) {
+                u8 palidx = attr & 7;
+                col = palette_get_col(gb_state->io_lcd_BGPD, palidx, colidx);
+            } else
+                col = palette_get_gray(bgwin_palette, colidx);
             pixbuf[x + y * GB_LCD_WIDTH] = col;
         }
     } else {
@@ -321,7 +341,11 @@ void gui_render_current_line(struct gb_state *gb_state) {
             u8 colidx = ((b1 >> shift) & 1) |
                        (((b2 >> shift) & 1) << 1);
 
-            u8 col = palette_get(bgwin_palette, colidx);
+            u16 col = 0;
+            if (use_col)
+                palette_get_col(gb_state->io_lcd_BGPD, 0, colidx);
+            else
+                palette_get_gray(bgwin_palette, colidx);
             pixbuf[x + y * GB_LCD_WIDTH] = col;
         }
     }
@@ -342,8 +366,11 @@ void gui_render_current_line(struct gb_state *gb_state) {
 
             int obj_tileoff = obj_tileoff_x + obj_tileoff_y * 8;
             int shift = 7 - obj_tileoff % 8;
-            u8 b1 = obj_tiledata[objs[i].tile * 16 + obj_tileoff/8*2];
-            u8 b2 = obj_tiledata[objs[i].tile * 16 + obj_tileoff/8*2 + 1];
+            int tiledata_off = objs[i].tile * 16 + obj_tileoff/8*2;
+            if (use_col && objs[i].flags & (1<<3))
+                tiledata_off += VRAM_BANKSIZE;
+            u8 b1 = obj_tiledata[tiledata_off];
+            u8 b2 = obj_tiledata[tiledata_off + 1];
             u8 colidx = ((b1 >> shift) & 1) |
                        (((b2 >> shift) & 1) << 1);
 
@@ -351,15 +378,21 @@ void gui_render_current_line(struct gb_state *gb_state) {
                 if (objs[i].flags & (1<<7)) /* OBJ-to-BG prio */
                     if (pixbuf[x + y * GB_LCD_WIDTH] > 0)
                         continue;
-                u8 pal = objs[i].flags & (1<<4) ? obj_palette2 : obj_palette1;
-                u8 col = palette_get(pal, colidx);
+                u16 col = 0;
+                if (use_col) {
+                    u8 palidx = objs[i].flags & 7;
+                    col = palette_get_col(gb_state->io_lcd_OBPD, palidx, colidx);
+                } else {
+                    u8 pal = objs[i].flags & (1<<4) ? obj_palette2 : obj_palette1;
+                    col = palette_get_gray(pal, colidx);
+                }
                 pixbuf[x + y * GB_LCD_WIDTH] = col;
             }
         }
     }
 }
 
-void gui_render_frame(struct gb_state *gb_state) {
+void gui_render_frame(char use_colors) {
     u32 *pixels = NULL;
     int pitch;
     if (SDL_LockTexture(texture, NULL, (void*)&pixels, &pitch)) {
@@ -367,14 +400,32 @@ void gui_render_frame(struct gb_state *gb_state) {
         exit(1);
     }
 
-    /* The colors stored in pixbuf already went through the palette translation
-     * when rendering each line. */
-    u32 palette[] = { 0xffffffff, 0xaaaaaaaa, 0x66666666, 0x11111111 };
-    for (int y = 0; y < GB_LCD_HEIGHT; y++)
-        for (int x = 0; x < GB_LCD_WIDTH; x++) {
-            int idx = x + y * GB_LCD_WIDTH;
-            pixels[idx] = palette[pixbuf[idx]];
-        }
+    if (use_colors) {
+        /* The colors stored in pixbuf are two byte each, 5 bits per rgb
+         * component: -bbbbbgg gggrrrrr. We need to extract these, scale these
+         * values from 0-1f to 0-ff and put them in RGBA format. For the scaling
+         * we'd have to multiply by 0xff/0x1f, which is 8.23, approx 8, which is
+         * a shift by 3. */
+        for (int y = 0; y < GB_LCD_HEIGHT; y++)
+            for (int x = 0; x < GB_LCD_WIDTH; x++) {
+                int idx = x + y * GB_LCD_WIDTH;
+                u16 rawcol = pixbuf[idx];
+                u32 r = ((rawcol >>  0) & 0x1f) << 3;
+                u32 g = ((rawcol >>  5) & 0x1f) << 3;
+                u32 b = ((rawcol >> 10) & 0x1f) << 3;
+                u32 col = (r << 24) | (g << 16) | (b << 8) | 0xff;
+                pixels[idx] = col;
+            }
+    } else {
+        /* The colors stored in pixbuf already went through the palette
+         * translation, but are still 2 bit monochrome. */
+        u32 palette[] = { 0xffffffff, 0xaaaaaaaa, 0x66666666, 0x11111111 };
+        for (int y = 0; y < GB_LCD_HEIGHT; y++)
+            for (int x = 0; x < GB_LCD_WIDTH; x++) {
+                int idx = x + y * GB_LCD_WIDTH;
+                pixels[idx] = palette[pixbuf[idx]];
+            }
+    }
 
     SDL_UnlockTexture(texture);
     SDL_RenderCopy(renderer, texture, NULL, NULL);
