@@ -142,6 +142,12 @@ struct gb_state
     u8 io_sound_channel4_poly;
     u8 io_sound_channel4_consec_initial;
 
+    /* CGB DMA transfers (HDMA) */
+    u8 io_hdma_src_high, io_hdma_src_low;
+    u8 io_hdma_dst_high, io_hdma_dst_low;
+    u8 io_hdma_status; /* (remaining) length in lower bits, high bit 1=done. */
+    /* TODO: H-Blank DMA */
+
 
     int mem_bank_rom, mem_num_banks_rom;
     int mem_bank_wram, mem_num_banks_wram;

@@ -35,6 +35,29 @@
         } \
     } while (0)
 
+
+void mmu_start_hdma(struct gb_state *s, u8 lenmode) {
+    /* TODO: properly do hblank mode!! */
+
+    u16 len = ((lenmode & ~(1<<7)) + 1) * 0x10;
+    u8 mode_hblank = (lenmode & (1<<7)) ? 1 : 0;
+    u16 src = ((s->io_hdma_src_high << 8) | s->io_hdma_src_low) & ~0xf;
+    u16 dst = ((s->io_hdma_dst_high << 8) | s->io_hdma_dst_low) & ~0xf;
+    dst = (dst & 0x1fff) | 0x8000; /* Ignore upper 3 bits (always in VRAM) */
+
+    printf("HDMA %.4x -> %.4x, len=%.4x mode_hblank=%d\n", src, dst, len,
+            mode_hblank);
+
+    mmu_assert(src < 0x7ff0 || (src >= 0xa000 && src < 0xdff0));
+    mmu_assert(dst >= 0x8000 && dst < 0x9ff0);
+
+    /* TODO: optimize by bypassing mmu_read/write */
+    for (u16 i = 0; i < len; i++)
+        mmu_write(s, dst++, mmu_read(s, src++));
+
+    s->io_hdma_status = 0xff; /* done */
+}
+
 void mmu_write(struct gb_state *s, u16 location, u8 value) {
     //MMU_DEBUG_W("Mem write (%x) %x: ", location, value);
     switch (location & 0xf000) {
@@ -382,6 +405,26 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 mmu_assert(s->in_bios);
                 s->in_bios = 0;
                 break;
+            case 0xff51:
+                MMU_DEBUG_W("HDMA source, high");
+                s->io_hdma_src_high = value;
+                break;
+            case 0xff52:
+                MMU_DEBUG_W("HDMA source, low");
+                s->io_hdma_src_low = value;
+                break;
+            case 0xff53:
+                MMU_DEBUG_W("HDMA dest, high");
+                s->io_hdma_dst_high = value;
+                break;
+            case 0xff54:
+                MMU_DEBUG_W("HDMA dest, low");
+                s->io_hdma_dst_low = value;
+                break;
+            case 0xff55:
+                MMU_DEBUG_W("HDMA length/mode and start transfer");
+                mmu_start_hdma(s, value);
+                break;
             case 0xff56:
                 MMU_DEBUG_W("Infrared");
                 s->io_infrared = value;
@@ -685,6 +728,9 @@ u8 mmu_read(struct gb_state *s, u16 location) {
                 MMU_DEBUG_R("VRAM Bank");
                 mmu_assert(s->gb_type == GB_TYPE_CGB);
                 return s->mem_bank_vram & 1;
+            case 0xff55:
+                MMU_DEBUG_R("HDMA status (active/length)");
+                return s->io_hdma_status;
             case 0xff56:
                 MMU_DEBUG_R("Infrared");
                 return s->io_infrared;
