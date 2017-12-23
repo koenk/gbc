@@ -119,17 +119,17 @@ void cpu_reset_state(struct gb_state *s) {
     s->io_lcd_SCY  = 0x00;
     s->io_lcd_WX   = 0x00;
     s->io_lcd_WY   = 0x00;
-    s->io_lcd_BGP  = 0xfc;
-    s->io_lcd_OBP0 = 0xff;
-    s->io_lcd_OBP1 = 0xff;
-    s->io_lcd_BGPI = 0x00;
-    s->io_lcd_BGPD = 0x00;
-    s->io_lcd_OBPI = 0x00;
-    s->io_lcd_OBPD = 0x00;
     s->io_lcd_LCDC = 0x91;
     s->io_lcd_STAT = 0x00;
     s->io_lcd_LY   = 0x00;
     s->io_lcd_LYC  = 0x00;
+    s->io_lcd_BGP  = 0xfc;
+    s->io_lcd_OBP0 = 0xff;
+    s->io_lcd_OBP1 = 0xff;
+    s->io_lcd_BGPI = 0x00;
+    s->io_lcd_OBPI = 0x00;
+    memset(s->io_lcd_BGPD, 0, sizeof(s->io_lcd_BGPD));
+    memset(s->io_lcd_OBPD, 0, sizeof(s->io_lcd_OBPD));
 
     s->io_timer_DIV_cycles = 0x00;
     s->io_timer_DIV  = 0x00;

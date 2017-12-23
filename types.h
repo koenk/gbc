@@ -82,21 +82,37 @@ struct gb_state
     u8 interrupts_request;
     u8 halt_for_interrupts:1;
 
-    u8 io_lcd_SCX;  // Scroll X
-    u8 io_lcd_SCY;  // Scroll Y
-    u8 io_lcd_WX;   // Window X
-    u8 io_lcd_WY;   // Window Y
-    u8 io_lcd_BGP;  // Background palette data (monochrome)
-    u8 io_lcd_OBP0; // Object palette 0 data (monochrome)
-    u8 io_lcd_OBP1; // Object palette 1 data (monochrome)
-    u8 io_lcd_BGPI; // Background palette index
-    u8 io_lcd_BGPD; // Background palette data
-    u8 io_lcd_OBPI; // Sprite palette index
-    u8 io_lcd_OBPD; // Sprite palette data
-    u8 io_lcd_LCDC; // LCD Control. 0 = BG, 1 = OBJ, 2 = OBJ-size, 3 = BG tilemap, 4 = BG+Win tilemap, 5 = window, 6 = window tilemap, 7 = lcd enable
-    u8 io_lcd_STAT; // LCD Status. 0-1 = mode, 2 = LYC==LY, 3 = M0 interrupt, 4 = M1 inter, 5 = M2 inter, 6 = LY=LYC inter
-    u8 io_lcd_LY;   // LCD Y line
-    u8 io_lcd_LYC;  // LCD Y line compare
+    u8 io_lcd_SCX;  /* BG scroll X */
+    u8 io_lcd_SCY;  /* BG scroll Y */
+    u8 io_lcd_WX;   /* Window X */
+    u8 io_lcd_WY;   /* Window Y */
+    u8 io_lcd_LCDC; /* LCD Control bits:
+                        0: BG enable,
+                        1: OBJ/sprites enable,
+                        2: OBJ/sprites-size (8x8 or 8x16),
+                        3: BG tilemap (9800-9bff or 9c00-9fff),
+                        4: BG+Win tile data (8800-97FF+signed idx or 8000-8FFF),
+                        5: Window enable,
+                        6: Window tilemap (9800-9bff or 9c00-9fff),
+                        7: LCD enable */
+    u8 io_lcd_STAT; /* LCD Status bits
+                        0-1: Current mode,
+                          2: Current LYC==LY status,
+                          3: Trigger interrupt on entering mode 0,
+                          4: Trigger interrupt on entering mode 1,
+                          5: Trigger interrupt on entering mode 2,
+                          6: Trigger interrupt on LY=LYC */
+    u8 io_lcd_LY;   /* Current LCD Y line */
+    u8 io_lcd_LYC;  /* LCD Y line compare  */
+
+    /* Palette data for both monochrome (non-CGB) and color (CGB) */
+    u8 io_lcd_BGP;  /* Background palette data (monochrome, non-CGB) */
+    u8 io_lcd_OBP0; /* Object palette 0 data (monochrome, non-CGB) */
+    u8 io_lcd_OBP1; /* Object palette 1 data (monochrome, non-CGB) */
+    u8 io_lcd_BGPI; /* Background palette index (color, CGB) */
+    u8 io_lcd_BGPD[0x20]; /* Background palettes (color, CGB) */
+    u8 io_lcd_OBPI; /* Sprite palette index (color, CGB) */
+    u8 io_lcd_OBPD[0x20]; /* Sprite/object palettes for CGB. */
 
     u8 io_timer_DIV;
     u32 io_timer_DIV_cycles;

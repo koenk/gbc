@@ -435,7 +435,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 break;
             case 0xff69:
                 MMU_DEBUG_W("Background Palette Data");
-                s->io_lcd_BGPD = value;
+                s->io_lcd_BGPD[s->io_lcd_BGPI & 0x3f] = value;
                 if (s->io_lcd_BGPI & (1 << 7))
                     s->io_lcd_BGPI = (((s->io_lcd_BGPI & 0x3f) + 1) & 0x3f) | (1 << 7);
                 break;
@@ -445,7 +445,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 break;
             case 0xff6b:
                 MMU_DEBUG_W("Sprite Palette Data");
-                s->io_lcd_OBPD = value;
+                s->io_lcd_OBPD[s->io_lcd_OBPI & 0x3f] = value;
                 if (s->io_lcd_OBPI & (1 << 7))
                     s->io_lcd_OBPI = (((s->io_lcd_OBPI & 0x3f) + 1) & 0x3f) | (1 << 7);
                 break;
