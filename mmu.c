@@ -122,7 +122,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
             }
             s->emu_state->extram_dirty = 1;
         } else if (s->mbc == 3) {
-            MMU_DEBUG_W("EXTRAM (sw)/RTC (B%d)", s->mem_mbc3_ram_rtc_select);
+            MMU_DEBUG_W("EXTRAM (sw)/RTC (B%d)", s->mem_mbc3_extram_rtc_select);
             if (s->mem_mbc3_extram_rtc_select < 0x04) {
                 s->mem_EXTRAM[s->mem_mbc3_extram_rtc_select * EXTRAM_BANKSIZE + location - 0xa000] = value;
                 s->emu_state->extram_dirty = 1;
@@ -138,7 +138,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
         s->mem_WRAM[location - 0xc000] = value;
         break;
     case 0xd000: /* D000 - DFFF */
-        MMU_DEBUG_W("WRAM B%d", s->mem_bank_ram);
+        MMU_DEBUG_W("WRAM B%d", s->mem_bank_wram);
         s->mem_WRAM[s->mem_bank_wram * WRAM_BANKSIZE + location - 0xd000] = value;
         break;
     case 0xe000: /* E000 - FDFF */
@@ -394,7 +394,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                     s->io_lcd_OBPI = (((s->io_lcd_OBPI & 0x3f) + 1) & 0x3f) | (1 << 7);
                 break;
             case 0xff70:
-                MMU_DEBUG_W("RAM Bank");
+                MMU_DEBUG_W("WRAM Bank");
                 mmu_assert(s->gb_type == GB_TYPE_CGB);
                 if (value == 0)
                     value = 1;
@@ -476,7 +476,7 @@ u8 mmu_read(struct gb_state *s, u16 location) {
             } else /* ROM mode - we can only be bank 0 */
                 return s->mem_EXTRAM[location - 0xa000];
         } else if (s->mbc == 3) {
-            MMU_DEBUG_R("EXTRAM (sw)/RTC (B%d)", s->mem_mbc3_ram_rtc_select);
+            MMU_DEBUG_R("EXTRAM (sw)/RTC (B%d)", s->mem_mbc3_extram_rtc_select);
             if (s->mem_mbc3_extram_rtc_select < 0x04)
                 return s->mem_EXTRAM[s->mem_mbc3_extram_rtc_select * EXTRAM_BANKSIZE + location - 0xa000];
             else if (s->mem_mbc3_extram_rtc_select >= 0x08 && s->mem_mbc3_extram_rtc_select <= 0x0c)
@@ -491,7 +491,7 @@ u8 mmu_read(struct gb_state *s, u16 location) {
         //MMU_DEBUG_R("WRAM B0  @%x", (location - 0xc000));
         return s->mem_WRAM[location - 0xc000];
     case 0xd000: /* D000 - DFFF */
-        MMU_DEBUG_R("WRAM B%d @%x", s->mem_bank_ram, location - 0xd000);
+        MMU_DEBUG_R("WRAM B%d @%x", s->mem_bank_wram, location - 0xd000);
         return s->mem_WRAM[s->mem_bank_wram * WRAM_BANKSIZE + location - 0xd000];
     case 0xe000: /* E000 - FDFF */
         mmu_error("Reading from ECHO (0xc000 - 0xddff) B0: %x", location);
