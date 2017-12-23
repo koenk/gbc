@@ -25,21 +25,21 @@ void audio_callback(void *userdata, u8 *stream, int len) {
 }
 
 int audio_init(struct gb_state *s) {
-	SDL_AudioSpec want, have;
+    SDL_AudioSpec want, have;
 
     if (SDL_InitSubSystem(SDL_INIT_AUDIO)) {
         printf("SDL: failed to initialize sound: %s\n", SDL_GetError());
         return 1;
     }
 
-	SDL_memset(&want, 0, sizeof(want));
-	want.freq = 44100;
-	want.format = AUDIO_U8;
-	want.channels = 2;
-	want.samples = BUFSIZE*CHANNELS;
-	want.callback = audio_callback;
+    SDL_memset(&want, 0, sizeof(want));
+    want.freq = 44100;
+    want.format = AUDIO_U8;
+    want.channels = 2;
+    want.samples = BUFSIZE*CHANNELS;
+    want.callback = audio_callback;
     audio_dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
-	if (!audio_dev) {
+    if (!audio_dev) {
         printf("SDL: failed to open sound device: %s\n", SDL_GetError());
         return 1;
     }

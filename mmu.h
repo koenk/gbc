@@ -5,18 +5,18 @@
 
 /*
  * Memory layout of the GameBoy:
- *  $0000-$3FFF	ROM (bank 0)
- *  $4000-$7FFF	ROM (bank 1..n, switchable)
- *  $8000-$9FFF	VRAM (bank 0 non-CGB, bank 0-1 on CGB)
- *  $A000-$BFFF	External RAM (cartridge, optional)
- *  $C000-$CFFF	Internal WRAM (bank 0)
- *  $D000-$DFFF	Internal WRAM (bank 1-7, switchable, CGB only)
- *  $E000-$FDFF	Echo RAM (reserved)
- *  $FE00-$FE9F	OAM - Object Attribute Memory
- *  $FEA0-$FEFF	Unusable
- *  $FF00-$FF7F	Hardware I/O Registers
- *  $FF80-$FFFE	Zero
- *  $FFFF	    Interrupt Enable Flag
+ *  $0000-$3FFF ROM (bank 0)
+ *  $4000-$7FFF ROM (bank 1..n, switchable)
+ *  $8000-$9FFF VRAM (bank 0 non-CGB, bank 0-1 on CGB)
+ *  $A000-$BFFF External RAM (cartridge, optional)
+ *  $C000-$CFFF Internal WRAM (bank 0)
+ *  $D000-$DFFF Internal WRAM (bank 1-7, switchable, CGB only)
+ *  $E000-$FDFF Echo RAM (reserved)
+ *  $FE00-$FE9F OAM - Object Attribute Memory
+ *  $FEA0-$FEFF Unusable
+ *  $FF00-$FF7F Hardware I/O Registers
+ *  $FF80-$FFFE Zero
+ *  $FFFF       Interrupt Enable Flag
  */
 
 #define ROMHDR_TITLE        0x134
