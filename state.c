@@ -31,7 +31,7 @@ void print_rom_header_info(u8* rom) {
     case 0x01: printf("MBC1\n"); break;
     case 0x02: printf("MBC1+RAM\n"); break;
     case 0x03: printf("MBC1+RAM+BATTERY\n"); break;
-    case 0x04: printf("MBC2\n"); break;
+    case 0x05: printf("MBC2\n"); break;
     case 0x06: printf("MBC2+BATTERY\n"); break;
     case 0x08: printf("ROM+RAM\n"); break;
     case 0x09: printf("ROM+RAM+BATTERY\n"); break;
@@ -52,10 +52,13 @@ void print_rom_header_info(u8* rom) {
     case 0x1c: printf("MBC5+RUMBLE\n"); break;
     case 0x1d: printf("MBC5+RUMBLE+RAM\n"); break;
     case 0x1e: printf("MBC5+RUMBLE+RAM+BATTERY\n"); break;
+    case 0x20: printf("MBC6\n"); break;
+    case 0x22: printf("MBC7+SENSOR+RUMBLE+RAM+BATTERY\n"); break;
     case 0xfc: printf("POCKET CAMERA\n"); break;
     case 0xfd: printf("BANDAI TAMA5\n"); break;
     case 0xfe: printf("HuC3\n"); break;
     case 0xff: printf("HuC1+RAM+BATTERY\n"); break;
+    default:   printf("UNKNOWN (%x)\n", cart_type); break;
     }
 
     printf("ROM Size: ");
@@ -72,6 +75,7 @@ void print_rom_header_info(u8* rom) {
     case 0x52: printf("1.1MB (72 banks)\n"); break;
     case 0x53: printf("1.2MB (80 banks)\n"); break;
     case 0x54: printf("1.5MB (96 banks)\n"); break;
+    default:   printf("UNKNOWN (%x)\n", cart_ROM);
     }
 
     printf("RAM Size: ");
@@ -81,6 +85,9 @@ void print_rom_header_info(u8* rom) {
     case 0x01: printf("2KB\n"); break;
     case 0x02: printf("8KB\n"); break;
     case 0x03: printf("32KB (4 banks)\n"); break;
+    case 0x04: printf("128KB (16 banks)\n"); break;
+    case 0x05: printf("64KB (8 banks)\n"); break;
+    default:   printf("UNKNOWN (%x)\n", cart_RAM);
     }
 }
 
@@ -130,7 +137,7 @@ int rom_get_info(u8 *rom, size_t rom_size, struct rominfo *ret_rominfo) {
     case 0x01: mbc = 1;                                     break;
     case 0x02: mbc = 1; extram = 1;                         break;
     case 0x03: mbc = 1; extram = 1; battery = 1;            break;
-    case 0x04: mbc = 2;                                     break;
+    case 0x05: mbc = 2;                                     break;
     case 0x06: mbc = 2;             battery = 1;            break;
     case 0x08:          extram = 1;                         break;
     case 0x09:          extram = 1; battery = 1;            break;
@@ -167,6 +174,7 @@ int rom_get_info(u8 *rom, size_t rom_size, struct rominfo *ret_rominfo) {
     case 0x05: rom_banks = 64;  break; /* 1M */
     case 0x06: rom_banks = 128; break; /* 2M */
     case 0x07: rom_banks = 256; break; /* 4M */
+    case 0x08: rom_banks = 512; break; /* 8M */
     case 0x52: rom_banks = 72;  break; /* 1.1M */
     case 0x53: rom_banks = 80;  break; /* 1.2M */
     case 0x54: rom_banks = 96;  break; /* 1.5M */
@@ -175,10 +183,12 @@ int rom_get_info(u8 *rom, size_t rom_size, struct rominfo *ret_rominfo) {
     }
 
     switch (hdr_extram_size) {
-    case 0x00: extram_banks = 0; break; /* None */
-    case 0x01: extram_banks = 1; break; /* 2K */
-    case 0x02: extram_banks = 1; break; /* 8K */
-    case 0x03: extram_banks = 4; break; /* 32K */
+    case 0x00: extram_banks = 0;  break; /* None */
+    case 0x01: extram_banks = 1;  break; /* 2K */
+    case 0x02: extram_banks = 1;  break; /* 8K */
+    case 0x03: extram_banks = 4;  break; /* 32K */
+    case 0x04: extram_banks = 16; break; /* 128K */
+    case 0x05: extram_banks = 8;  break; /* 64KB */
     default:
         err("Unsupported EXT_RAM size: %x", hdr_extram_size);
     }
