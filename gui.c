@@ -343,9 +343,9 @@ void gui_render_current_line(struct gb_state *gb_state) {
 
             u16 col = 0;
             if (use_col)
-                palette_get_col(gb_state->io_lcd_BGPD, 0, colidx);
+                col = palette_get_col(gb_state->io_lcd_BGPD, 0, colidx);
             else
-                palette_get_gray(bgwin_palette, colidx);
+                col = palette_get_gray(bgwin_palette, colidx);
             pixbuf[x + y * GB_LCD_WIDTH] = col;
         }
     }
