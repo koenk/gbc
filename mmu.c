@@ -347,11 +347,11 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 s->io_lcd_STAT = (value & ~7) | (s->io_lcd_STAT & 7);
                 break;
             case 0xff42:
-                MMU_DEBUG_W("Scroll Y");
+                MMU_DEBUG_W("BG Scroll Y");
                 s->io_lcd_SCY = value;
                 break;
             case 0xff43:
-                MMU_DEBUG_W("Scroll X");
+                MMU_DEBUG_W("BG Scroll X");
                 s->io_lcd_SCX = value;
                 break;
             case 0xff44:
@@ -434,7 +434,8 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 s->io_lcd_BGPI = value;
                 break;
             case 0xff69:
-                MMU_DEBUG_W("Background Palette Data");
+                MMU_DEBUG_W("Background Palette Data idx=%d, inc=%d",
+                        s->io_lcd_BGPI & 0x3f, s->io_lcd_BGPI & (1<<7)?1:0);
                 s->io_lcd_BGPD[s->io_lcd_BGPI & 0x3f] = value;
                 if (s->io_lcd_BGPI & (1 << 7))
                     s->io_lcd_BGPI = (((s->io_lcd_BGPI & 0x3f) + 1) & 0x3f) | (1 << 7);
@@ -444,7 +445,8 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 s->io_lcd_OBPI = value;
                 break;
             case 0xff6b:
-                MMU_DEBUG_W("Sprite Palette Data");
+                MMU_DEBUG_W("Sprite Palette Data idx=%d, inc=%d",
+                        s->io_lcd_OBPI & 0x3f, s->io_lcd_OBPI & (1<<7)?1:0);
                 s->io_lcd_OBPD[s->io_lcd_OBPI & 0x3f] = value;
                 if (s->io_lcd_OBPI & (1 << 7))
                     s->io_lcd_OBPI = (((s->io_lcd_OBPI & 0x3f) + 1) & 0x3f) | (1 << 7);
