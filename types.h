@@ -110,9 +110,9 @@ struct gb_state
     u8 io_lcd_OBP0; /* Object palette 0 data (monochrome, non-CGB) */
     u8 io_lcd_OBP1; /* Object palette 1 data (monochrome, non-CGB) */
     u8 io_lcd_BGPI; /* Background palette index (color, CGB) */
-    u8 io_lcd_BGPD[0x20]; /* Background palettes (color, CGB) */
+    u8 io_lcd_BGPD[0x40]; /* Background palettes (color, CGB) */
     u8 io_lcd_OBPI; /* Sprite palette index (color, CGB) */
-    u8 io_lcd_OBPD[0x20]; /* Sprite/object palettes for CGB. */
+    u8 io_lcd_OBPD[0x40]; /* Sprite/object palettes for CGB. */
 
     u8 io_timer_DIV;
     u32 io_timer_DIV_cycles;
