@@ -19,20 +19,6 @@
  *  $FFFF       Interrupt Enable Flag
  */
 
-#define ROMHDR_TITLE        0x134
-#define ROMHDR_CGBFLAG      0x143
-#define ROMHDR_CARTTYPE     0x147
-#define ROMHDR_ROMSIZE      0x148
-#define ROMHDR_EXTRAMSIZE   0x149
-
-#define ROM_BANKSIZE        0x4000 /* 16K */
-#define WRAM_BANKSIZE       0x1000 /* 4K */
-#define VRAM_BANKSIZE       0x2000 /* 8K */
-#define EXTRAM_BANKSIZE     0x2000 /* 8K */
-
-#define OAM_SIZE            0xa0
-
-
 u8 mmu_read(struct gb_state *s, u16 location);
 void mmu_write(struct gb_state *s, u16 location, u8 value);
 

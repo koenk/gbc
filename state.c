@@ -4,7 +4,7 @@
 #include <assert.h>
 
 #include "state.h"
-#include "mmu.h"
+#include "hwdefs.h"
 
 #define err(fmt, ...) \
     do { \

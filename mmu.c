@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "mmu.h"
+#include "hwdefs.h"
 #include "debugger.h"
 
 #if 1
