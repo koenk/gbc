@@ -173,6 +173,7 @@ struct gb_state
     u8 mem_mbc1_extrambank; /* MBC1 - EXT_RAM bank (if selected). */
     u8 mem_mbc1_romram_select; /* MBC1 - Mode for above field (ROM/RAM). */
     u8 mem_mbc3_extram_rtc_select;
+    u8 mem_mbc5_extrambank;
 
     u8 *mem_ROM; /* Between 16K and 4M (banked) */
     u8 *mem_WRAM; /* Internal RAM (WRAM), 8K non-CGB, 32K CGB (banked) */

@@ -73,7 +73,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
     case 0x2000: /* 2000 - 3FFF */
     case 0x3000:
         MMU_DEBUG_W("ROM bank number");
-        if (value == 0)
+        if (value == 0 && s->mbc != 5)
             value = 1;
 
         if (s->mbc == 0)
@@ -82,7 +82,15 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
             value &= 0x1f;
         else if (s->mbc == 3)
             value &= 0x7f;
-        else
+        else if (s->mbc == 5) {
+            /* MBC5 splits up this area into 2000-2fff for low bits rom bank,
+             * and 3000-3fff for the high bit. */
+            if (location < 0x3000) /* lower 8 bit */
+                s->mem_bank_rom = (s->mem_bank_rom & (1<<8)) | value;
+            else /* Upper bit */
+                s->mem_bank_rom = (s->mem_bank_rom & 0xff) | ((value & 1) << 8);
+            break;
+        } else
             mmu_error("Area not implemented for this MBC (mbc=%d, loc=%.4x, val=%x)\n", s->mbc, location, value);
         mmu_assert(s->mbc == 0 || value < s->mem_num_banks_rom);
         s->mem_bank_rom = value;
@@ -98,7 +106,6 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 s->mem_mbc1_extrambank = value & 3;
                 if (s->mem_num_banks_extram == 1)
                     s->mem_mbc1_extrambank &= 1;
-                printf("extram banks=%d, val=%d, res=%d\n", s->mem_num_banks_extram, value, s->mem_mbc1_extrambank);
             }
         } else if (s->mbc == 3) {
             MMU_DEBUG_W("EXTRAM bank number -OR- RTC register select");
@@ -109,6 +116,10 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 mmu_assert(s->has_rtc);
             }
             s->mem_mbc3_extram_rtc_select = value;
+        } else if (s->mbc == 5) {
+            MMU_DEBUG_W("EXTRAM bank number");
+            s->mem_mbc5_extrambank = value & 0xf;
+            s->mem_mbc5_extrambank &= s->mem_num_banks_extram - 1;
         } else
             mmu_error("Area not implemented for this MBC (mbc=%d, loc=%.4x, val=%x)\n", s->mbc, location, value);
         break;
@@ -124,9 +135,10 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 s->mem_latch_rtc = s->mem_latch_rtc;
             }
             s->mem_latch_rtc = value;
-        } else if (s->mbc == 3) { /* MBC3 without RTC */
+        } else if (s->mbc == 3 || s->mbc == 5) { /* MBC3 without RTC or MBC5 */
+            MMU_DEBUG_W("Invalid write for MBC%d", s->mbc);
             /* Just ignore it - Pokemon Red writes here because it's coded for
-             * MBC1, but actually has an MBC3? */
+             * MBC1, but actually has an MBC3, for instance */
         } else
             mmu_error("Area not implemented for this MBC (mbc=%d, loc=%.4x, val=%x)\n", s->mbc, location, value);
         break;
@@ -159,6 +171,13 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 s->mem_RTC[s->mem_mbc3_extram_rtc_select - 0xa008] = value;
             else
                 mmu_error("Writing to extram/rtc with invalid selection (%d) @%x, val=%x", s->mem_mbc3_extram_rtc_select, location, value);
+        } else if (s->mbc == 5) {
+            MMU_DEBUG_W("EXTRAM (B%d)", s->mem_mbc5_extrambank);
+            if (!s->has_extram)
+                break;
+            mmu_assert(s->mem_mbc5_extrambank < s->mem_num_banks_extram);
+            s->mem_EXTRAM[s->mem_mbc5_extrambank * EXTRAM_BANKSIZE + location - 0xa000] = value;
+            s->emu_state->extram_dirty = 1;
         } else
             mmu_error("Area not implemented for this MBC (mbc=%d, loc=%.4x, val=%x)\n", s->mbc, location, value);
         break;
@@ -512,16 +531,14 @@ u8 mmu_read(struct gb_state *s, u16 location) {
         if (s->mbc == 1 && s->mem_mbc1_romram_select == 0)
             bank |= s->mem_mbc1_rombankupper << 5;
         mmu_assert(s->mem_num_banks_rom > 0);
-        mmu_assert(bank > 0);
+        mmu_assert(bank > 0 || s->mbc == 5);
         bank &= s->mem_num_banks_rom - 1;
         return s->mem_ROM[bank * 0x4000 + (location - 0x4000)];
-        break;
     }
     case 0x8000: /* 8000 - 9FFF */
     case 0x9000:
         MMU_DEBUG_R("VRAM");
         return s->mem_VRAM[s->mem_bank_vram * VRAM_BANKSIZE + location - 0x8000];
-        break;
     case 0xa000: /* A000 - BFFF */
     case 0xb000:
         if (s->mbc == 1) {
@@ -541,6 +558,12 @@ u8 mmu_read(struct gb_state *s, u16 location) {
                 return s->mem_RTC[s->mem_mbc3_extram_rtc_select - 0xa008];
             else
                 mmu_error("Reading from extram/rtc with invalid selection (%d) @%x", s->mem_mbc3_extram_rtc_select, location);
+        } else if (s->mbc == 5) {
+            MMU_DEBUG_R("EXTRAM B%d", s->mem_mbc5_extrambank);
+            if (!s->has_extram)
+                return 0xff;
+            mmu_assert(s->mem_mbc5_extrambank < s->mem_num_banks_extram);
+            return s->mem_EXTRAM[s->mem_mbc5_extrambank * EXTRAM_BANKSIZE + location - 0xa000];
         } else
             mmu_error("Area not implemented for this MBC (mbc=%d, location=%.4x)\n", s->mbc, location);
 
@@ -736,6 +759,14 @@ u8 mmu_read(struct gb_state *s, u16 location) {
             case 0xff56:
                 MMU_DEBUG_R("Infrared");
                 return s->io_infrared;
+            case 0xff69:
+                MMU_DEBUG_R("Background Palette Data idx=%d",
+                        s->io_lcd_BGPI & 0x3f);
+                return s->io_lcd_BGPD[s->io_lcd_BGPI & 0x3f];
+            case 0xff6b:
+                MMU_DEBUG_R("Sprite Palette Data idx=%d",
+                        s->io_lcd_OBPI & 0x3f);
+                return s->io_lcd_OBPD[s->io_lcd_OBPI & 0x3f];
             case 0xff70:
                 MMU_DEBUG_R("WRAM bank");
                 return s->mem_bank_wram;
