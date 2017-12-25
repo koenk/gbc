@@ -14,10 +14,13 @@
 #include "cpu.h"
 #include "mmu.h"
 #include "hwdefs.h"
+#include "debugger.h"
 
-static void cpu_handle_interrupts(struct gb_state *state);
-static void cpu_handle_LCD(struct gb_state *state, int op_cycles);
-
+#define cpu_error(fmt, ...) \
+    do { \
+        printf("CPU Error: " fmt "\n", ##__VA_ARGS__); \
+        dbg_run_debugger(s); \
+    } while (0)
 
 static const u8 flagmasks[] = { FLAG_Z, FLAG_Z, FLAG_C, FLAG_C };
 
@@ -90,9 +93,6 @@ void cpu_init_emu_cpu_state(struct gb_state *s) {
 
 /* Resets the CPU state (registers and such) to the state at bootup. */
 void cpu_reset_state(struct gb_state *s) {
-    s->freq = GB_FREQ;
-    s->cycles = 0;
-
     s->reg16.AF = 0x01B0;
     s->reg16.BC = 0x0013;
     s->reg16.DE = 0x00D8;
@@ -113,8 +113,7 @@ void cpu_reset_state(struct gb_state *s) {
     s->interrupts_enable  = 0x0;
     s->interrupts_request = 0x0;
 
-    s->lcd_mode_clks_left = 0;
-
+    s->io_lcd_mode_cycles_left = 0;
     s->io_lcd_SCX  = 0x00;
     s->io_lcd_SCY  = 0x00;
     s->io_lcd_WX   = 0x00;
@@ -168,7 +167,7 @@ void cpu_reset_state(struct gb_state *s) {
     s->io_sound_channel3_level = 0x9f;
     s->io_sound_channel3_freq_lo = 0x00;
     s->io_sound_channel3_freq_hi = 0xbf;
-    memset(s->io_sound_channel3_ram, 0, 0xf);
+    memset(s->io_sound_channel3_ram, 0, sizeof(s->io_sound_channel3_ram));
 
     s->io_sound_channel4_length = 0xff;
     s->io_sound_channel4_envelope = 0x00;
@@ -194,8 +193,6 @@ void cpu_reset_state(struct gb_state *s) {
 
     s->mem_latch_rtc = 0x01;
     memset(s->mem_RTC, 0, 0x05);
-
-    s->in_bios = 0;
 }
 
 
@@ -223,7 +220,7 @@ static void cpu_handle_interrupts(struct gb_state *s) {
     }
 }
 
-static void cpu_handle_LCD(struct gb_state *s, int op_cycles) {
+static void cpu_handle_LCD(struct gb_state *s) {
     /* The LCD goes through several states.
      * 0 = HBlank, 1 = VBlank, 2 = reading OAM, 3 = reading OAM and VRAM
      * 2 and 3 are between each HBlank
@@ -234,19 +231,19 @@ static void cpu_handle_LCD(struct gb_state *s, int op_cycles) {
      * 2 takes about 77-83 and 3 about 169-175 clks.
      */
 
-    s->lcd_mode_clks_left -= op_cycles;
+    s->io_lcd_mode_cycles_left -= s->emu_state->last_op_cycles;
 
-    if (s->lcd_mode_clks_left < 0) {
+    if (s->io_lcd_mode_cycles_left < 0) {
         switch (s->io_lcd_STAT & 3) {
         case 0: /* HBlank */
             if (s->io_lcd_LY == 143) { /* Go into VBlank (1) */
                 s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 1;
-                s->lcd_mode_clks_left = GB_LCD_MODE_1_CLKS;
+                s->io_lcd_mode_cycles_left = GB_LCD_MODE_1_CLKS;
                 s->interrupts_request |= 1 << 0;
                 s->emu_state->lcd_screen_needs_rerender = 1;
             } else { /* Back into OAM (2) */
                 s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 2;
-                s->lcd_mode_clks_left = GB_LCD_MODE_2_CLKS;
+                s->io_lcd_mode_cycles_left = GB_LCD_MODE_2_CLKS;
             }
             s->io_lcd_LY = (s->io_lcd_LY + 1) % (GB_LCD_LY_MAX + 1);
             s->io_lcd_STAT = (s->io_lcd_STAT & 0xfb) | (s->io_lcd_LY == s->io_lcd_LYC);
@@ -257,15 +254,15 @@ static void cpu_handle_LCD(struct gb_state *s, int op_cycles) {
             break;
         case 1: /* VBlank, Back to OAM (2) */
             s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 2;
-            s->lcd_mode_clks_left = GB_LCD_MODE_2_CLKS;
+            s->io_lcd_mode_cycles_left = GB_LCD_MODE_2_CLKS;
             break;
         case 2: /* OAM, onto line drawing (OAM+VRAM busy) (3) */
             s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 3;
-            s->lcd_mode_clks_left = GB_LCD_MODE_3_CLKS;
+            s->io_lcd_mode_cycles_left = GB_LCD_MODE_3_CLKS;
             break;
         case 3: /* OAM+VRAM, let's HBlank (0) */
             s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 0;
-            s->lcd_mode_clks_left = GB_LCD_MODE_0_CLKS;
+            s->io_lcd_mode_cycles_left = GB_LCD_MODE_0_CLKS;
             s->emu_state->lcd_line_needs_rerender = 1;
             break;
         }
@@ -283,18 +280,19 @@ static void cpu_handle_LCD(struct gb_state *s, int op_cycles) {
 
 }
 
-static void cpu_handle_timer(struct gb_state *s, int op_cycles) {
-    u32 div_cycles_per_tick = s->freq / GB_DIV_FREQ;
-    s->io_timer_DIV_cycles += op_cycles;
+static void cpu_handle_timer(struct gb_state *s) {
+    u32 freq = s->double_speed ? GB_FREQ : 2 * GB_FREQ;
+    u32 div_cycles_per_tick = freq / GB_DIV_FREQ;
+    s->io_timer_DIV_cycles += s->emu_state->last_op_cycles;
     if (s->io_timer_DIV_cycles >= div_cycles_per_tick) {
         s->io_timer_DIV_cycles %= div_cycles_per_tick;
         s->io_timer_DIV++;
     }
 
     if (s->io_timer_TAC & (1<<2)) { /* Timer enable */
-        s->io_timer_TIMA_cycles += op_cycles;
+        s->io_timer_TIMA_cycles += s->emu_state->last_op_cycles;
         u32 timer_hz = GB_TIMA_FREQS[s->io_timer_TAC & 0x3];
-        u32 timer_cycles_per_tick = s->freq / timer_hz;
+        u32 timer_cycles_per_tick = freq / timer_hz;
         if (s->io_timer_TIMA_cycles >= timer_cycles_per_tick) {
             s->io_timer_TIMA_cycles %= timer_cycles_per_tick;
             s->io_timer_TIMA++;
@@ -331,7 +329,7 @@ static void cpu_handle_timer(struct gb_state *s, int op_cycles) {
 #define REG16S(bitpos) s->emu_cpu_state->reg16s_lut[((op >> bitpos) & 3)]
 #define FLAG(bitpos) ((op >> bitpos) & 3)
 
-static int do_cb_instruction(struct gb_state *s) {
+static void cpu_do_cb_instruction(struct gb_state *s) {
     u8 op = mmu_read(s, s->pc++);
 
     if (M(op, 0x00, 0xf8)) { /* RLC reg8 */
@@ -424,40 +422,12 @@ static int do_cb_instruction(struct gb_state *s) {
         if (reg) *reg = val; else mmu_write(s, HL, val);
     } else {
         s->pc -= 2;
-        return 1;
+        cpu_error("Unknown instruction");
     }
-    return 0;
 }
 
-int cpu_do_instruction(struct gb_state *s) {
-    /*
-     * TODO:
-     * * timer
-     */
-
-    u8 op;
-    int op_cycles;
-
-    cpu_handle_interrupts(s);
-
-    op = mmu_read(s, s->pc++);
-    op_cycles = cycles_per_instruction[op];
-    if (op == 0xcb)
-        op_cycles = cycles_per_instruction_cb[mmu_read(s, s->pc)];
-
-    cpu_handle_LCD(s, op_cycles);
-    cpu_handle_timer(s, op_cycles);
-    s->cycles += op_cycles;
-
-    if (s->halt_for_interrupts) {
-        if (!s->interrupts_enable) {
-            printf("Waiting for interrupts while none enabled, deadlock.\n");
-            return 1;
-        }
-        s->pc--;
-        return 0;
-    }
-
+static void cpu_do_instruction(struct gb_state *s) {
+    u8 op = mmu_read(s, s->pc++);
     if (M(op, 0x00, 0xff)) { /* NOP */
     } else if (M(op, 0x01, 0xcf)) { /* LD reg16, u16 */
         u16 *dst = REG16(4);
@@ -774,7 +744,7 @@ int cpu_do_instruction(struct gb_state *s) {
         mmu_write(s, IMM16, A);
         s->pc += 2;
     } else if (M(op, 0xcb, 0xff)) { /* CB-prefixed extended instructions */
-        return do_cb_instruction(s);
+        return cpu_do_cb_instruction(s);
     } else if (M(op, 0xee, 0xff)) { /* XOR imm8 */
         A ^= IMM8;
         s->pc++;
@@ -814,20 +784,37 @@ int cpu_do_instruction(struct gb_state *s) {
         s->pc++;
     } else {
         s->pc--;
-        return 1;
+        cpu_error("Unknown instruction");
     }
-
-    if (s->pc >= 0x8000 && s->pc < 0xa000) {
-        printf("PC in VRAM: %.4x\n", s->pc);
-        return 1;
-    } else if (s->pc >= 0xa000 && s->pc < 0xc000) {
-        printf("PC in external RAM: %.4x\n", s->pc);
-        return 1;
-    } else if (s->pc >= 0xe000 && s->pc < 0xff80) {
-        printf("PC in ECHO/OAM/IO/unusable: %.4x\n", s->pc);
-        return 1;
-    }
-
-    return 0;
 }
 
+void cpu_step(struct gb_state *s) {
+    u8 op;
+
+    s->emu_state->last_op_cycles = 0;
+
+    cpu_handle_interrupts(s);
+
+    op = mmu_read(s, s->pc);
+    s->emu_state->last_op_cycles = cycles_per_instruction[op];
+    if (op == 0xcb) {
+        op = mmu_read(s, s->pc + 1);
+        s->emu_state->last_op_cycles = cycles_per_instruction_cb[op];
+    }
+
+    if (!s->halt_for_interrupts)
+        cpu_do_instruction(s);
+    else
+        if (!s->interrupts_enable)
+            cpu_error("Waiting for interrupts while disabled, deadlock.\n");
+
+    cpu_handle_LCD(s);
+    cpu_handle_timer(s);
+
+    if (s->pc >= 0x8000 && s->pc < 0xa000)
+        cpu_error("PC in VRAM: %.4x\n", s->pc);
+    else if (s->pc >= 0xa000 && s->pc < 0xc000)
+        cpu_error("PC in external RAM: %.4x\n", s->pc);
+    else if (s->pc >= 0xe000 && s->pc < 0xff80)
+        cpu_error("PC in ECHO/OAM/IO/unusable: %.4x\n", s->pc);
+}

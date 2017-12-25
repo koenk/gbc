@@ -31,6 +31,11 @@ struct emu_state {
     char dbg_print_disas;
     char dbg_print_mmu;
     u16 dbg_breakpoint;
+    u32 last_op_cycles; /* The duration of the last intruction. Normally just
+                           the CPU executing the instruction, but the MMU could
+                           take longer in the case of some DMA ops. */
+    u32 time_cycles;
+    u32 time_seconds;
 };
 
 /* State of the cpu part of the emulation, not of the hardware. */
@@ -42,15 +47,13 @@ enum gb_type {
 };
 
 /* TODO split this up into module-managed components (cpu, mmu, ...) */
-struct gb_state
-{
-    enum gb_type gb_type;
-    u8* bios;
-    u8 in_bios:1;
+struct gb_state {
 
-    int freq;
-    int lcd_mode_clks_left;
+    /*
+     * CPU state (registers, interrupts, etc)
+     */
 
+    /* Registers: allow access to 8-bit and 16-bit regs, and via array. */
     union {
         u8 regs[8];
         struct {
@@ -72,16 +75,23 @@ struct gb_state
         } flags;
     };
 
-
     u16 sp;
     u16 pc;
-    long cycles;
+
+    char in_bios:1; /* At start BIOS is temporarily mapped at 0000-0100. */
+    char halt_for_interrupts:1; /* Don't run instructions until interrupt. */
+    char double_speed:1; /* CGB: we can run at double CPU speed. */
 
     u8 interrupts_master_enabled:1;
-    u8 interrupts_enable;
-    u8 interrupts_request;
-    u8 halt_for_interrupts:1;
+    u8 interrupts_enable; /* Bitmask of which interrupts are enabled. */
+    u8 interrupts_request; /* Bitmask of which interrupts are pending. */
 
+
+    /*
+     * I/O ports (and some additional variables to manage I/O)
+     */
+
+    int io_lcd_mode_cycles_left;
     u8 io_lcd_SCX;  /* BG scroll X */
     u8 io_lcd_SCY;  /* BG scroll Y */
     u8 io_lcd_WX;   /* Window X */
@@ -130,7 +140,6 @@ struct gb_state
     u8 io_buttons_dirs;
     u8 io_buttons_buttons;
 
-
     u8 io_sound_enabled;
     u8 io_sound_out_terminal;
     u8 io_sound_terminal_control;
@@ -165,6 +174,10 @@ struct gb_state
     /* TODO: H-Blank DMA */
 
 
+    /*
+     * Memory (MMU) state
+     */
+
     int mem_bank_rom, mem_num_banks_rom;
     int mem_bank_wram, mem_num_banks_wram;
     int mem_bank_extram, mem_num_banks_extram;
@@ -181,15 +194,26 @@ struct gb_state
     u8 *mem_VRAM; /* Video RAM, 8K non-CGB, 16K CGB (banked) */
     u8 mem_OAM[0xa0]; /* Sprite/Object attributes */
     u8 mem_HRAM[0x7f];
+    u8 *mem_BIOS;
 
     u8 mem_latch_rtc;
     u8 mem_RTC[0x05]; /* Real time clock, select by extram banks 0x08-0x0c */
 
-    /* Cartridge hardware (including memory bank controller) */
+
+    /*
+     * Cartridge hardware (including memory bank controller)
+     */
+
+    enum gb_type gb_type;
     int mbc;
     char has_extram;
     char has_battery;
     char has_rtc;
+
+
+    /*
+     * Internal emulator state
+     */
 
     struct emu_state *emu_state;
     struct emu_cpu_state *emu_cpu_state;

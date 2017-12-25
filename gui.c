@@ -229,7 +229,6 @@ void gui_render_current_line(struct gb_state *gb_state) {
     if (use_col)
         bg_enable = 1;
 
-
     u16 bgwin_tilemap_addr = bgwin_tilemap_low ? 0x8000 : 0x9000;
     u16 bgmap_addr = bgmap_high ? 0x9c00 : 0x9800;
     u16 winmap_addr = winmap_high ? 0x9c00 : 0x9800;

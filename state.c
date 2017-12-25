@@ -263,8 +263,8 @@ int state_new_from_rom(struct gb_state *s, u8 *rom, size_t rom_size) {
  */
 void state_add_bios(struct gb_state *s, u8 *bios, size_t bios_size) {
     assert(bios_size == 256);
-    s->bios = malloc(bios_size);
-    memcpy(s->bios, bios, bios_size);
+    s->mem_BIOS = malloc(bios_size);
+    memcpy(s->mem_BIOS, bios, bios_size);
     s->in_bios = 1;
     s->pc = 0;
 }

@@ -511,7 +511,7 @@ u8 mmu_read(struct gb_state *s, u16 location) {
     if (s->in_bios && location < 0x100)
     {
         /*MMU_DEBUG_R("BIOS: %04x: %02x", location, s->bios[location]); */
-        return s->bios[location];
+        return s->mem_BIOS[location];
     }
 
     switch (location & 0xf000) {

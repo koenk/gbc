@@ -12,6 +12,7 @@
 #include "disassembler.h"
 #include "gui.h"
 #include "debugger.h"
+#include "hwdefs.h"
 
 
 int read_file(char *filename, u8 **buf, size_t *size) {
@@ -301,12 +302,11 @@ int main(int argc, char *argv[]) {
     printf("=== Starting execution ===\n");
     printf("==========================\n\n");
 
-    int ret = 0;
     int instr = 0;
     struct timeval starttime, endtime;
     gettimeofday(&starttime, NULL);
 
-    while (!ret && !gb_state.emu_state->quit) {
+    while (!gb_state.emu_state->quit) {
         if (gb_state.emu_state->dbg_print_disas)
             disassemble(&gb_state);
 
@@ -315,8 +315,13 @@ int main(int argc, char *argv[]) {
             if (dbg_run_debugger(&gb_state))
                 break;
 
-        ret = cpu_do_instruction(&gb_state);
+        cpu_step(&gb_state);
         instr++;
+        gb_state.emu_state->time_cycles += gb_state.emu_state->last_op_cycles;
+        if (gb_state.emu_state->time_cycles >= GB_FREQ) {
+            gb_state.emu_state->time_cycles %= GB_FREQ;
+            gb_state.emu_state->time_seconds++;
+        }
 
         if (gb_state.emu_state->lcd_line_needs_rerender) {
             gui_render_current_line(&gb_state);
@@ -356,17 +361,17 @@ int main(int argc, char *argv[]) {
     }
 
     gettimeofday(&endtime, NULL);
+
     printf("\nEmulation ended at instr: ");
-
-    if (ret)
-        disassemble(&gb_state);
-
+    disassemble(&gb_state);
     dbg_print_regs(&gb_state);
 
     int t_usec = endtime.tv_usec - starttime.tv_usec;
     int t_sec = endtime.tv_sec - starttime.tv_sec;
     double exectime = t_sec + (t_usec / 1000000.);
-    double emulated_secs = instr / 4194304.;
+
+    double emulated_secs = gb_state.emu_state->time_seconds +
+        gb_state.emu_state->time_cycles / 4194304.;
 
     printf("\nEmulated %f sec (%d instr) in %f sec WCT, %f%%.\n", emulated_secs,
             instr, exectime,  emulated_secs / exectime * 100);
