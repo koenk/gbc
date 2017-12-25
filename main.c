@@ -302,7 +302,6 @@ int main(int argc, char *argv[]) {
     printf("=== Starting execution ===\n");
     printf("==========================\n\n");
 
-    int instr = 0;
     struct timeval starttime, endtime;
     gettimeofday(&starttime, NULL);
 
@@ -316,7 +315,6 @@ int main(int argc, char *argv[]) {
                 break;
 
         cpu_step(&gb_state);
-        instr++;
         gb_state.emu_state->time_cycles += gb_state.emu_state->last_op_cycles;
         if (gb_state.emu_state->time_cycles >= GB_FREQ) {
             gb_state.emu_state->time_cycles %= GB_FREQ;
@@ -360,6 +358,9 @@ int main(int argc, char *argv[]) {
 
     }
 
+    if (gb_state.emu_state->extram_dirty)
+        save(&gb_state, 1, save_filename_out);
+
     gettimeofday(&endtime, NULL);
 
     printf("\nEmulation ended at instr: ");
@@ -373,8 +374,8 @@ int main(int argc, char *argv[]) {
     double emulated_secs = gb_state.emu_state->time_seconds +
         gb_state.emu_state->time_cycles / 4194304.;
 
-    printf("\nEmulated %f sec (%d instr) in %f sec WCT, %f%%.\n", emulated_secs,
-            instr, exectime,  emulated_secs / exectime * 100);
+    printf("\nEmulated %f sec in %f sec WCT, %.0f%%.\n", emulated_secs, exectime,
+            emulated_secs / exectime * 100);
 
     return 0;
 }
