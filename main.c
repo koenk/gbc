@@ -194,6 +194,8 @@ int main(int argc, char *argv[]) {
     if (parse_args(argc, argv, &emu_args))
         exit(1);
 
+    memset(&gb_state, 0, sizeof(gb_state));
+
     if (emu_args.state_filename) {
         printf("Loading savestate from \"%s\" ...\n", emu_args.state_filename);
         u8 *state_buf;
