@@ -343,7 +343,6 @@ int main(int argc, char *argv[]) {
                 audio_update(&gb_state);
         }
 
-
         if (gb_state.emu_state->make_savestate) {
             gb_state.emu_state->make_savestate = 0;
             save(&gb_state, 0, state_filename_out);

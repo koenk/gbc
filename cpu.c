@@ -146,7 +146,6 @@ void cpu_reset_state(struct gb_state *s) {
     s->io_buttons_dirs = 0x0f;
     s->io_buttons_buttons = 0x0f;
 
-
     s->io_sound_enabled = 0xf1;
     s->io_sound_out_terminal = 0xf3;
     s->io_sound_terminal_control = 0x77;
@@ -195,11 +194,8 @@ void cpu_reset_state(struct gb_state *s) {
     memset(s->mem_RTC, 0, 0x05);
 }
 
-
 static void cpu_handle_interrupts(struct gb_state *s) {
     u8 interrupts = s->interrupts_enable & s->interrupts_request;
-
-    /*printf("Executing interrupt %d.\n", interrupts);*/
 
     if (s->interrupts_master_enabled) {
         for (int i = 0; i < 5; i++) {
@@ -222,13 +218,16 @@ static void cpu_handle_interrupts(struct gb_state *s) {
 
 static void cpu_handle_LCD(struct gb_state *s) {
     /* The LCD goes through several states.
-     * 0 = HBlank, 1 = VBlank, 2 = reading OAM, 3 = reading OAM and VRAM
-     * 2 and 3 are between each HBlank
+     * 0 = H-Blank, 1 = V-Blank, 2 = reading OAM, 3 = line render
+     * For the first 144 (visible) lines the hardware first reads the OAM
+     * (sprite data), then goes through each pixel on the line, and finally
+     * H-Blanks. For the last few lines the screen is in V-Blank, where VRAM can
+     * be freely accessed and we don't have the other 3 modes per line.
      * So the cycle goes like: 2330002330002330002330001111..1111233000...
      *                         OBBHHHOBBHHHOBBHHHOBBHHHVVVV..VVVVOBBHHH...
      * The entire cycle takes 70224 clks. (so that's about 60FPS)
-     * HBlank takes about 201-207 cycles. VBlank 4560 clks.
-     * 2 takes about 77-83 and 3 about 169-175 clks.
+     * H-Blank takes about 201-207 cycles. VBlank 4560 clks.
+     * OAM reading takes about 77-83 and line rendering about 169-175 clks.
      */
 
     s->io_lcd_mode_cycles_left -= s->emu_state->last_op_cycles;
