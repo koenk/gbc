@@ -234,8 +234,8 @@ static void cpu_handle_LCD(struct gb_state *s) {
 
     if (s->io_lcd_mode_cycles_left < 0) {
         switch (s->io_lcd_STAT & 3) {
-        case 0: /* HBlank */
-            if (s->io_lcd_LY == 143) { /* Go into VBlank (1) */
+        case 0: /* H-Blank */
+            if (s->io_lcd_LY == 143) { /* Go into V-Blank (1) */
                 s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 1;
                 s->io_lcd_mode_cycles_left = GB_LCD_MODE_1_CLKS;
                 s->interrupts_request |= 1 << 0;
@@ -259,7 +259,7 @@ static void cpu_handle_LCD(struct gb_state *s) {
             s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 3;
             s->io_lcd_mode_cycles_left = GB_LCD_MODE_3_CLKS;
             break;
-        case 3: /* OAM+VRAM, let's HBlank (0) */
+        case 3: /* Line render (OAM+VRAM), let's H-Blank (0) */
             s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 0;
             s->io_lcd_mode_cycles_left = GB_LCD_MODE_0_CLKS;
             s->emu_state->lcd_line_needs_rerender = 1;

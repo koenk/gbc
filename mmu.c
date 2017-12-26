@@ -168,7 +168,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 s->mem_EXTRAM[s->mem_mbc3_extram_rtc_select * EXTRAM_BANKSIZE + location - 0xa000] = value;
                 s->emu_state->extram_dirty = 1;
             } else if (s->mem_mbc3_extram_rtc_select >= 0x08 && s->mem_mbc3_extram_rtc_select <= 0x0c)
-                s->mem_RTC[s->mem_mbc3_extram_rtc_select - 0xa008] = value;
+                s->mem_RTC[s->mem_mbc3_extram_rtc_select] = value;
             else
                 mmu_error("Writing to extram/rtc with invalid selection (%d) @%x, val=%x", s->mem_mbc3_extram_rtc_select, location, value);
         } else if (s->mbc == 5) {
@@ -475,7 +475,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 mmu_assert(s->gb_type == GB_TYPE_CGB);
                 if (value == 0)
                     value = 1;
-                mmu_assert(value < s->mem_num_banks_wram);
+                value &= s->mem_num_banks_wram - 1;
                 s->mem_bank_wram = value;
                 break;
             case 0xff7f:
@@ -555,7 +555,7 @@ u8 mmu_read(struct gb_state *s, u16 location) {
             if (s->mem_mbc3_extram_rtc_select < 0x04)
                 return s->mem_EXTRAM[s->mem_mbc3_extram_rtc_select * EXTRAM_BANKSIZE + location - 0xa000];
             else if (s->mem_mbc3_extram_rtc_select >= 0x08 && s->mem_mbc3_extram_rtc_select <= 0x0c)
-                return s->mem_RTC[s->mem_mbc3_extram_rtc_select - 0xa008];
+                return s->mem_RTC[s->mem_mbc3_extram_rtc_select];
             else
                 mmu_error("Reading from extram/rtc with invalid selection (%d) @%x", s->mem_mbc3_extram_rtc_select, location);
         } else if (s->mbc == 5) {
