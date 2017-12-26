@@ -216,72 +216,7 @@ static void cpu_handle_interrupts(struct gb_state *s) {
     }
 }
 
-static void cpu_handle_LCD(struct gb_state *s) {
-    /* The LCD goes through several states.
-     * 0 = H-Blank, 1 = V-Blank, 2 = reading OAM, 3 = line render
-     * For the first 144 (visible) lines the hardware first reads the OAM
-     * (sprite data), then goes through each pixel on the line, and finally
-     * H-Blanks. For the last few lines the screen is in V-Blank, where VRAM can
-     * be freely accessed and we don't have the other 3 modes per line.
-     * So the cycle goes like: 2330002330002330002330001111..1111233000...
-     *                         OBBHHHOBBHHHOBBHHHOBBHHHVVVV..VVVVOBBHHH...
-     * The entire cycle takes 70224 clks. (so that's about 60FPS)
-     * H-Blank takes about 201-207 cycles. VBlank 4560 clks.
-     * OAM reading takes about 77-83 and line rendering about 169-175 clks.
-     */
-
-    s->io_lcd_mode_cycles_left -= s->emu_state->last_op_cycles;
-
-    if (s->io_lcd_mode_cycles_left < 0) {
-        switch (s->io_lcd_STAT & 3) {
-        case 0: /* H-Blank */
-            if (s->io_lcd_LY == 143) { /* Go into V-Blank (1) */
-                s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 1;
-                s->io_lcd_mode_cycles_left = GB_LCD_MODE_1_CLKS;
-                s->interrupts_request |= 1 << 0;
-                s->emu_state->lcd_screen_needs_rerender = 1;
-            } else { /* Back into OAM (2) */
-                s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 2;
-                s->io_lcd_mode_cycles_left = GB_LCD_MODE_2_CLKS;
-            }
-            s->io_lcd_LY = (s->io_lcd_LY + 1) % (GB_LCD_LY_MAX + 1);
-            s->io_lcd_STAT = (s->io_lcd_STAT & 0xfb) | (s->io_lcd_LY == s->io_lcd_LYC);
-
-            /* We incremented line, check LY=LYC and set interrupt if needed. */
-            if (s->io_lcd_STAT & (1 << 6) && s->io_lcd_LY == s->io_lcd_LYC)
-                s->interrupts_request |= 1 << 1;
-            break;
-        case 1: /* VBlank, Back to OAM (2) */
-            s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 2;
-            s->io_lcd_mode_cycles_left = GB_LCD_MODE_2_CLKS;
-            break;
-        case 2: /* OAM, onto line drawing (OAM+VRAM busy) (3) */
-            s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 3;
-            s->io_lcd_mode_cycles_left = GB_LCD_MODE_3_CLKS;
-            break;
-        case 3: /* Line render (OAM+VRAM), let's H-Blank (0) */
-            s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 0;
-            s->io_lcd_mode_cycles_left = GB_LCD_MODE_0_CLKS;
-            s->emu_state->lcd_line_needs_rerender = 1;
-            if (s->io_hdma_running)
-                mmu_hdma_do(s);
-            break;
-        }
-
-        /* We switched mode, trigger interrupt if requested. */
-        u8 newmode = s->io_lcd_STAT & 3;
-        if (s->io_lcd_STAT & (1 << 5) && newmode == 2) /* OAM (2) int */
-            s->interrupts_request |= 1 << 1;
-        if (s->io_lcd_STAT & (1 << 4) && newmode == 1) /* V-Blank (1) int */
-            s->interrupts_request |= 1 << 1;
-        if (s->io_lcd_STAT & (1 << 3) && newmode == 0) /* H-Blank (0) int */
-            s->interrupts_request |= 1 << 1;
-    }
-
-
-}
-
-static void cpu_handle_timer(struct gb_state *s) {
+void cpu_timers_step(struct gb_state *s) {
     u32 freq = s->double_speed ? GB_FREQ : 2 * GB_FREQ;
     u32 div_cycles_per_tick = freq / GB_DIV_FREQ;
     s->io_timer_DIV_cycles += s->emu_state->last_op_cycles;
@@ -808,9 +743,6 @@ void cpu_step(struct gb_state *s) {
     else
         if (!s->interrupts_enable)
             cpu_error("Waiting for interrupts while disabled, deadlock.\n");
-
-    cpu_handle_LCD(s);
-    cpu_handle_timer(s);
 
     if (s->pc >= 0x8000 && s->pc < 0xa000)
         cpu_error("PC in VRAM: %.4x\n", s->pc);

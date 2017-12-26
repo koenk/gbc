@@ -35,7 +35,7 @@
         } \
     } while (0)
 
-void mmu_hdma_do(struct gb_state *s) {
+static void mmu_hdma_do(struct gb_state *s) {
     /* DMA one block (0x10 byte), should be called at start of H-Blank. */
     mmu_assert(s->io_hdma_running);
     mmu_assert((s->io_hdma_status & (1<<7)) == 0);
@@ -58,7 +58,7 @@ void mmu_hdma_do(struct gb_state *s) {
     }
 }
 
-void mmu_hdma_start(struct gb_state *s, u8 lenmode) {
+static void mmu_hdma_start(struct gb_state *s, u8 lenmode) {
     u16 blocks = (lenmode & ~(1<<7)) + 1;
     u16 len = blocks * 0x10;
     u8 mode_hblank = (lenmode & (1<<7)) ? 1 : 0;
@@ -99,6 +99,11 @@ void mmu_hdma_start(struct gb_state *s, u8 lenmode) {
         if ((s->io_lcd_STAT & 3) == 0) /* H-Blank */
             mmu_hdma_do(s);
     }
+}
+
+void mmu_step(struct gb_state *s) {
+    if (s->emu_state->lcd_entered_hblank && s->io_hdma_running)
+        mmu_hdma_do(s);
 }
 
 void mmu_write(struct gb_state *s, u16 location, u8 value) {

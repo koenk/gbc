@@ -6,14 +6,24 @@
 #include <sys/time.h>
 
 #include "types.h"
+#include "hwdefs.h"
 #include "state.h"
 #include "cpu.h"
 #include "mmu.h"
+#include "lcd.h"
+#include "audio.h"
 #include "disassembler.h"
-#include "gui.h"
 #include "debugger.h"
-#include "hwdefs.h"
+#include "gui.h"
 
+#define GUI_WINDOW_TITLE "KoenGB"
+#define GUI_ZOOM      4
+
+#define emu_error(fmt, ...) \
+    do { \
+        printf("Emu initialization error: " fmt "\n", ##__VA_ARGS__); \
+        return 1; \
+    } while (0)
 
 int read_file(char *filename, u8 **buf, size_t *size) {
     FILE *fp;
@@ -63,7 +73,7 @@ struct emu_args {
     char break_at_start;
     char print_disas;
     char print_mmu;
-    char enable_sound;
+    char audio_enable;
 };
 
 void print_usage(char *progname) {
@@ -72,7 +82,7 @@ void print_usage(char *progname) {
     printf("Options:\n");
     printf(" -S, --break-start      Break into debugger before executing first "
             "instruction.\n");
-    printf(" -s, --sound            Enable (WIP) sound\n");
+    printf(" -a, --audio            Enable (WIP) audio\n");
     printf(" -d, --print-disas      Print every instruction before executing "
             "it.\n");
     printf(" -m, --print-mmu        Print every memory access\n");
@@ -88,14 +98,7 @@ void print_usage(char *progname) {
 }
 
 int parse_args(int argc, char **argv, struct emu_args *emu_args) {
-    emu_args->rom_filename = NULL;
-    emu_args->bios_filename = NULL;
-    emu_args->state_filename = NULL;
-    emu_args->save_filename = NULL;
-    emu_args->break_at_start = 0;
-    emu_args->print_disas = 0;
-    emu_args->print_mmu = 0;
-    emu_args->enable_sound = 0;
+    memset(emu_args, 0, sizeof(struct emu_args));
 
     if (argc == 1) {
         print_usage(argv[0]);
@@ -105,7 +108,7 @@ int parse_args(int argc, char **argv, struct emu_args *emu_args) {
     while (1) {
         static struct option long_options[] = {
             {"break-start",  no_argument,        0,  'S'},
-            {"sound",        no_argument,        0,  's'},
+            {"audio",        no_argument,        0,  'a'},
             {"print-disas",  no_argument,        0,  'd'},
             {"print-mmu",    no_argument,        0,  'm'},
             {"bios",         required_argument,  0,  'b'},
@@ -114,7 +117,7 @@ int parse_args(int argc, char **argv, struct emu_args *emu_args) {
             {0, 0, 0, 0}
         };
 
-        char c = getopt_long(argc, argv, "Ssdmb:l:e:", long_options, NULL);
+        char c = getopt_long(argc, argv, "Sadmb:l:e:", long_options, NULL);
 
         if (c == -1)
             break;
@@ -124,8 +127,8 @@ int parse_args(int argc, char **argv, struct emu_args *emu_args) {
                 emu_args->break_at_start = 1;
                 break;
 
-            case 's':
-                emu_args->enable_sound = 1;
+            case 'a':
+                emu_args->audio_enable = 1;
                 break;
 
             case 'd':
@@ -156,7 +159,6 @@ int parse_args(int argc, char **argv, struct emu_args *emu_args) {
 
     if (optind != argc - 1) {
         /* The remainder are non-option arguments (ROM) */
-
         print_usage(argv[0]);
         return 1;
     }
@@ -185,117 +187,212 @@ void save(struct gb_state *s, char extram, char *out_filename) {
 }
 
 
-int main(int argc, char *argv[]) {
-    struct gb_state gb_state;
-    char *rom_filename = NULL;
-    char state_filename_out[1024];
-    char save_filename_out[1024];
+void process_inputs(struct gb_state *s) {
+    struct gui_input input;
+    while (gui_input_poll(&input)) {
+        switch (input.type) {
+        case GUI_INPUT_EXIT:
+            s->emu_state->quit = 1;
 
-    struct emu_args emu_args;
-    if (parse_args(argc, argv, &emu_args))
-        exit(1);
+        case GUI_INPUT_DBGBREAK:
+            s->emu_state->dbg_break_next = 1;
+            break;
 
-    memset(&gb_state, 0, sizeof(gb_state));
+        case GUI_INPUT_SAVESTATE:
+            s->emu_state->make_savestate = 1;
+            break;
 
-    if (emu_args.state_filename) {
-        printf("Loading savestate from \"%s\" ...\n", emu_args.state_filename);
+        case GUI_INPUT_BUTTON_DOWN:
+            switch (input.button) {
+            case GUI_BUTTON_START:  s->io_buttons_buttons &= ~(1<<3); break;
+            case GUI_BUTTON_SELECT: s->io_buttons_buttons &= ~(1<<2); break;
+            case GUI_BUTTON_B:      s->io_buttons_buttons &= ~(1<<1); break;
+            case GUI_BUTTON_A:      s->io_buttons_buttons &= ~(1<<0); break;
+            case GUI_BUTTON_DOWN:   s->io_buttons_dirs    &= ~(1<<3); break;
+            case GUI_BUTTON_UP:     s->io_buttons_dirs    &= ~(1<<2); break;
+            case GUI_BUTTON_LEFT:   s->io_buttons_dirs    &= ~(1<<1); break;
+            case GUI_BUTTON_RIGHT:  s->io_buttons_dirs    &= ~(1<<0); break;
+            }
+            break;
+
+        case GUI_INPUT_BUTTON_UP:
+            switch (input.button) {
+            case GUI_BUTTON_START:  s->io_buttons_buttons |= 1<<3; break;
+            case GUI_BUTTON_SELECT: s->io_buttons_buttons |= 1<<2; break;
+            case GUI_BUTTON_B:      s->io_buttons_buttons |= 1<<1; break;
+            case GUI_BUTTON_A:      s->io_buttons_buttons |= 1<<0; break;
+            case GUI_BUTTON_DOWN:   s->io_buttons_dirs    |= 1<<3; break;
+            case GUI_BUTTON_UP:     s->io_buttons_dirs    |= 1<<2; break;
+            case GUI_BUTTON_LEFT:   s->io_buttons_dirs    |= 1<<1; break;
+            case GUI_BUTTON_RIGHT:  s->io_buttons_dirs    |= 1<<0; break;
+            }
+            break;
+        case GUI_INPUT_NONE:
+            break;
+        }
+    }
+}
+
+int emu_init(struct gb_state *s, struct emu_args *args) {
+    memset(s, 0, sizeof(struct gb_state));
+
+    init_emu_state(s);
+    cpu_init_emu_cpu_state(s);
+
+    if (!args->rom_filename)
+        emu_error("Must specify ROM filename");
+    if (strlen(args->rom_filename) >
+            sizeof(s->emu_state->state_filename_out) - 6)
+        emu_error("ROM filename too long (%s)", args->rom_filename);
+
+    if (args->state_filename) {
+        printf("Loading savestate from \"%s\" ...\n", args->state_filename);
         u8 *state_buf;
         size_t state_buf_size;
-        if (read_file(emu_args.state_filename, &state_buf, &state_buf_size)) {
-            fprintf(stderr, "Error during reading of state file \"%s\".\n",
-                    emu_args.state_filename);
-            exit(1);
-        }
-        if (state_load(&gb_state, state_buf, state_buf_size)) {
-            fprintf(stderr, "Error during loading of state, aborting.\n");
-            exit(1);
-        }
-        print_rom_header_info(gb_state.mem_ROM);
+        if (read_file(args->state_filename, &state_buf, &state_buf_size))
+            emu_error("Error during reading of state file \"%s\".\n",
+                    args->state_filename);
+
+        if (state_load(s, state_buf, state_buf_size))
+            emu_error("Error during loading of state, aborting.\n");
+
+        print_rom_header_info(s->mem_ROM);
 
     } else {
         u8 *rom;
         size_t rom_size;
-        printf("Loading ROM \"%s\"\n", emu_args.rom_filename);
-        if (read_file(emu_args.rom_filename, &rom, &rom_size)) {
-            fprintf(stderr, "Error during reading of ROM file \"%s\".\n",
-                    emu_args.rom_filename);
-            exit(1);
-        }
+        printf("Loading ROM \"%s\"\n", args->rom_filename);
+        if (read_file(args->rom_filename, &rom, &rom_size))
+            emu_error("Error during reading of ROM file \"%s\".\n",
+                    args->rom_filename);
 
         print_rom_header_info(rom);
 
-        if (state_new_from_rom(&gb_state, rom, rom_size)) {
-            fprintf(stderr, "Error loading ROM \"%s\", aborting.\n",
-                    emu_args.rom_filename);
-            exit(1);
-        }
+        if (state_new_from_rom(s, rom, rom_size))
+            emu_error("Error loading ROM \"%s\", aborting.\n",
+                    args->rom_filename);
 
-        cpu_reset_state(&gb_state);
+        cpu_reset_state(s);
 
-        if (emu_args.bios_filename) {
+        if (args->bios_filename) {
             u8 *bios;
             size_t bios_size;
-            read_file("bios.bin", &bios, &bios_size);
-            state_add_bios(&gb_state, bios, bios_size);
+            read_file(args->bios_filename, &bios, &bios_size);
+            state_add_bios(s, bios, bios_size);
         }
 
-        if (emu_args.save_filename) {
-            printf("Loading save from \"%s\" ...\n", emu_args.save_filename);
+        if (args->save_filename) {
             u8 *state_buf;
             size_t state_buf_size;
-            if (read_file(emu_args.save_filename, &state_buf, &state_buf_size)) {
-                fprintf(stderr, "Error during reading of save file \"%s\".\n",
-                        emu_args.save_filename);
-                exit(1);
-            }
-            if (state_load_extram(&gb_state, state_buf, state_buf_size)) {
-                fprintf(stderr, "Error during loading of save, aborting.\n");
-                exit(1);
-            }
+            if (read_file(args->save_filename, &state_buf, &state_buf_size))
+                emu_error("Error during reading of save file \"%s\".",
+                        args->save_filename);
+
+            if (state_load_extram(s, state_buf, state_buf_size))
+                emu_error("Error during loading of save, aborting.\n");
         } else {
-            snprintf(save_filename_out, sizeof(save_filename_out), "%ssav",
-                    emu_args.rom_filename);
+            snprintf(s->emu_state->save_filename_out,
+                    sizeof(s->emu_state->save_filename_out), "%ssav",
+                    args->rom_filename);
             u8 *state_buf;
             size_t state_buf_size;
-            if (read_file(save_filename_out, &state_buf, &state_buf_size) == 0)
-                if (state_load_extram(&gb_state, state_buf, state_buf_size)) {
-                    fprintf(stderr, "Error during loading of save.\n");
-                    exit(1);
-                }
+            if (read_file(s->emu_state->save_filename_out, &state_buf,
+                        &state_buf_size) == 0)
+                if (state_load_extram(s, state_buf, state_buf_size))
+                    emu_error("Error during loading of save.\n");
 
         }
     }
 
-    if (emu_args.rom_filename)
-        rom_filename = emu_args.rom_filename;
+    snprintf(s->emu_state->save_filename_out,
+            sizeof(s->emu_state->save_filename_out), "%ssav",
+            args->rom_filename);
+    snprintf(s->emu_state->state_filename_out,
+            sizeof(s->emu_state->state_filename_out), "%sstate",
+            args->rom_filename);
 
-    snprintf(save_filename_out, sizeof(save_filename_out), "%ssav",
-            rom_filename);
-    snprintf(state_filename_out, sizeof(state_filename_out), "%sstate",
-            rom_filename);
+    if (lcd_init(s))
+        emu_error("Couldn't initialize LCD");
+    if (gui_lcd_init(GB_LCD_WIDTH, GB_LCD_HEIGHT, GUI_ZOOM, GUI_WINDOW_TITLE))
+        emu_error("Couldn't initialize GUI LCD");
 
-    init_emu_state(&gb_state);
-    cpu_init_emu_cpu_state(&gb_state);
+    if (args->audio_enable) {
+        if (audio_init(s))
+            emu_error("Couldn't initialize audio");
+        if (gui_audio_init(AUDIO_SAMPLE_RATE, AUDIO_CHANNELS, AUDIO_SNDBUF_SIZE,
+                    s->emu_state->audio_sndbuf))
+            emu_error("Couldn't initialize GUI audio");
+    }
 
-    if (gui_init()) {
-        printf("Couldn't initialize LCD, exiting...\n");
+    if (args->break_at_start)
+        s->emu_state->dbg_break_next = 1;
+    if (args->print_disas)
+        s->emu_state->dbg_print_disas = 1;
+    if (args->print_mmu)
+        s->emu_state->dbg_print_mmu = 1;
+    if (args->audio_enable)
+        s->emu_state->audio_enable = 1;
+    return 0;
+}
+
+void emu_step(struct gb_state *s) {
+    if (s->emu_state->dbg_print_disas)
+        disassemble(s);
+
+    if (s->emu_state->dbg_break_next ||
+        s->pc == s->emu_state->dbg_breakpoint)
+        if (dbg_run_debugger(s)) {
+            s->emu_state->quit = 1;
+            return;
+        }
+
+    cpu_step(s);
+    lcd_step(s);
+    mmu_step(s);
+    cpu_timers_step(s);
+
+    s->emu_state->time_cycles += s->emu_state->last_op_cycles;
+    if (s->emu_state->time_cycles >= GB_FREQ) {
+        s->emu_state->time_cycles %= GB_FREQ;
+        s->emu_state->time_seconds++;
+    }
+
+    if (s->emu_state->lcd_entered_vblank) {
+        gui_lcd_render_frame(s->gb_type == GB_TYPE_CGB,
+                s->emu_state->lcd_pixbuf);
+
+        process_inputs(s);
+
+        if (s->emu_state->audio_enable) /* TODO */
+            audio_update(s);
+
+        /* Save periodically (once per frame) if dirty. */
+        s->emu_state->flush_extram = 1;
+    }
+
+    if (s->emu_state->make_savestate) {
+        s->emu_state->make_savestate = 0;
+        save(s, 0, s->emu_state->state_filename_out);
+    }
+
+    if (s->emu_state->flush_extram) {
+        s->emu_state->flush_extram = 0;
+        if (s->emu_state->extram_dirty)
+            save(s, 1, s->emu_state->save_filename_out);
+        s->emu_state->extram_dirty = 0;
+    }
+}
+
+
+int main(int argc, char *argv[]) {
+    struct gb_state gb_state;
+
+    struct emu_args emu_args;
+    if (parse_args(argc, argv, &emu_args))
         return 1;
-    }
 
-    if (emu_args.enable_sound)
-        if (audio_init(&gb_state)) {
-            printf("Couldn't initialize audio, exiting...\n");
-            return 1;
-        }
-
-    if (emu_args.break_at_start)
-        gb_state.emu_state->dbg_break_next = 1;
-    if (emu_args.print_disas)
-        gb_state.emu_state->dbg_print_disas = 1;
-    if (emu_args.print_mmu)
-        gb_state.emu_state->dbg_print_mmu = 1;
-    if (emu_args.enable_sound)
-        gb_state.emu_state->enable_sound = 1;
+    if (emu_init(&gb_state, &emu_args))
+        emu_error("Initialization failed");
 
 
     printf("==========================\n");
@@ -306,59 +403,11 @@ int main(int argc, char *argv[]) {
     gettimeofday(&starttime, NULL);
 
     while (!gb_state.emu_state->quit) {
-        if (gb_state.emu_state->dbg_print_disas)
-            disassemble(&gb_state);
-
-        if (gb_state.emu_state->dbg_break_next ||
-            gb_state.pc == gb_state.emu_state->dbg_breakpoint)
-            if (dbg_run_debugger(&gb_state))
-                break;
-
-        cpu_step(&gb_state);
-        gb_state.emu_state->time_cycles += gb_state.emu_state->last_op_cycles;
-        if (gb_state.emu_state->time_cycles >= GB_FREQ) {
-            gb_state.emu_state->time_cycles %= GB_FREQ;
-            gb_state.emu_state->time_seconds++;
-        }
-
-        if (gb_state.emu_state->lcd_line_needs_rerender) {
-            gui_render_current_line(&gb_state);
-            gb_state.emu_state->lcd_line_needs_rerender = 0;
-        }
-
-        if (gb_state.emu_state->lcd_screen_needs_rerender) {
-            gui_render_frame(gb_state.gb_type == GB_TYPE_CGB);
-            gb_state.emu_state->lcd_screen_needs_rerender = 0;
-
-            if (gui_handleinputs(&gb_state))
-                break;
-
-            /* Save periodically (once per frame) if dirty. */
-            if (gb_state.emu_state->extram_dirty)
-                save(&gb_state, 1, save_filename_out);
-            gb_state.emu_state->extram_dirty = 0;
-
-            /* TODO */
-            if (gb_state.emu_state->enable_sound)
-                audio_update(&gb_state);
-        }
-
-        if (gb_state.emu_state->make_savestate) {
-            gb_state.emu_state->make_savestate = 0;
-            save(&gb_state, 0, state_filename_out);
-        }
-
-        if (gb_state.emu_state->flush_extram) {
-            gb_state.emu_state->flush_extram = 0;
-            if (gb_state.emu_state->extram_dirty)
-                save(&gb_state, 1, save_filename_out);
-            gb_state.emu_state->extram_dirty = 0;
-        }
-
+        emu_step(&gb_state);
     }
 
     if (gb_state.emu_state->extram_dirty)
-        save(&gb_state, 1, save_filename_out);
+        save(&gb_state, 1, gb_state.emu_state->save_filename_out);
 
     gettimeofday(&endtime, NULL);
 

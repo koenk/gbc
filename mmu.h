@@ -19,6 +19,8 @@
  *  $FFFF       Interrupt Enable Flag
  */
 
+void mmu_step(struct gb_state *s);
+
 u8 mmu_read(struct gb_state *s, u16 location);
 void mmu_write(struct gb_state *s, u16 location, u8 value);
 
@@ -27,6 +29,5 @@ void mmu_write16(struct gb_state *s, u16 location, u16 value);
 u16 mmu_pop16(struct gb_state *s);
 void mmu_push16(struct gb_state *s, u16 value);
 
-void mmu_hdma_do(struct gb_state *s);
 
 #endif

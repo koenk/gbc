@@ -1,5 +1,6 @@
 PROGNAME = main
-OBJFILES = main.o state.o cpu.o mmu.o disassembler.o gui.o debugger.o
+OBJFILES = main.o state.o cpu.o mmu.o disassembler.o sdl.o debugger.o lcd.o \
+		   audio.o
 
 CC = clang
 RM = rm -fv

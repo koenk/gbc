@@ -13,6 +13,8 @@ typedef int16_t s16;
 typedef int32_t s32;
 typedef int64_t s64;
 
+typedef _Bool bool;
+
 #define FLAG_C 0x10
 #define FLAG_H 0x20
 #define FLAG_N 0x40
@@ -20,22 +22,32 @@ typedef int64_t s64;
 
 /* State of the emulator itself, not of the hardware. */
 struct emu_state {
-    char enable_sound;
-    char quit;
-    char make_savestate;
-    char lcd_line_needs_rerender; /* Set at the end of every HBlank. */
-    char lcd_screen_needs_rerender; /* Set at the beginning of every VBlank. */
-    char flush_extram; /* Flush battery-backed RAM when it's disabled. */
-    char extram_dirty; /* Write battery-backed RAM periodically when dirty. */
-    char dbg_break_next;
-    char dbg_print_disas;
-    char dbg_print_mmu;
+    bool quit;
+    bool make_savestate;
+
+    bool audio_enable;
+    u8 *audio_sndbuf;
+
+    bool lcd_entered_hblank; /* Set at the end of every HBlank. */
+    bool lcd_entered_vblank; /* Set at the beginning of every VBlank. */
+    u16 *lcd_pixbuf; /* 2-bit or 15-bit color per pixel. */
+
+    bool flush_extram; /* Flush battery-backed RAM when it's disabled. */
+    bool extram_dirty; /* Write battery-backed RAM periodically when dirty. */
+
+    bool dbg_break_next;
+    bool dbg_print_disas;
+    bool dbg_print_mmu;
     u16 dbg_breakpoint;
+
     u32 last_op_cycles; /* The duration of the last intruction. Normally just
                            the CPU executing the instruction, but the MMU could
                            take longer in the case of some DMA ops. */
     u32 time_cycles;
     u32 time_seconds;
+
+    char state_filename_out[1024];
+    char save_filename_out[1024];
 };
 
 /* State of the cpu part of the emulation, not of the hardware. */

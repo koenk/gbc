@@ -1,17 +1,37 @@
 #ifndef GUI_H
 #define GUI_H
 
-#include "types.h"
+int gui_audio_init(int sample_rate, int channels, size_t sndbuf_size,
+        uint8_t *sndbuf);
 
-#define GUI_WINDOW_TITLE "KoenGB"
-#define GUI_ZOOM      4
+int gui_lcd_init(int width, int height, int zoom, char *wintitle);
+void gui_lcd_render_frame(char use_colors, uint16_t *pixbuf);
 
-int audio_init(struct gb_state *s);
-void audio_update(struct gb_state *s);
+enum gui_input_type {
+    GUI_INPUT_NONE,
+    GUI_INPUT_EXIT,
+    GUI_INPUT_BUTTON_DOWN,
+    GUI_INPUT_BUTTON_UP,
+    GUI_INPUT_SAVESTATE,
+    GUI_INPUT_DBGBREAK,
+};
 
-int gui_init(void);
-void gui_render_current_line(struct gb_state *gb_state);
-void gui_render_frame(char use_colors);
-int gui_handleinputs(struct gb_state *gb_state);
+enum gui_input_button {
+    GUI_BUTTON_LEFT,
+    GUI_BUTTON_RIGHT,
+    GUI_BUTTON_UP,
+    GUI_BUTTON_DOWN,
+    GUI_BUTTON_A,
+    GUI_BUTTON_B,
+    GUI_BUTTON_START,
+    GUI_BUTTON_SELECT,
+};
+
+struct gui_input {
+    enum gui_input_type type;
+    enum gui_input_button button;
+};
+
+int gui_input_poll(struct gui_input *input);
 
 #endif
