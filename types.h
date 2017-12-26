@@ -171,7 +171,8 @@ struct gb_state {
     u8 io_hdma_src_high, io_hdma_src_low;
     u8 io_hdma_dst_high, io_hdma_dst_low;
     u8 io_hdma_status; /* (remaining) length in lower bits, high bit 1=done. */
-    /* TODO: H-Blank DMA */
+    char io_hdma_running:1;
+    u16 io_hdma_next_src, io_hdma_next_dst;
 
 
     /*

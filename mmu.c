@@ -35,27 +35,70 @@
         } \
     } while (0)
 
+void mmu_hdma_do(struct gb_state *s) {
+    /* DMA one block (0x10 byte), should be called at start of H-Blank. */
+    mmu_assert(s->io_hdma_running);
+    mmu_assert((s->io_hdma_status & (1<<7)) == 0);
+    mmu_assert((s->io_lcd_STAT & 3) == 0);
 
-void mmu_start_hdma(struct gb_state *s, u8 lenmode) {
-    /* TODO: properly do hblank mode!! */
+    for (int i = 0; i < 0x10; i++) {
+        u8 dat = mmu_read(s, s->io_hdma_next_src++);
+        mmu_write(s, s->io_hdma_next_dst++, dat);
+    }
 
-    u16 len = ((lenmode & ~(1<<7)) + 1) * 0x10;
+    u32 clks = GB_HDMA_BLOCK_CLKS;
+    if (s->double_speed)
+        clks *= 2;
+    s->emu_state->last_op_cycles += clks;
+
+    s->io_hdma_status--;
+    if (s->io_hdma_status == 0xff) {
+        /* Underflow meant we copied the last block and are done. */
+        s->io_hdma_running = 0;
+    }
+}
+
+void mmu_hdma_start(struct gb_state *s, u8 lenmode) {
+    u16 blocks = (lenmode & ~(1<<7)) + 1;
+    u16 len = blocks * 0x10;
     u8 mode_hblank = (lenmode & (1<<7)) ? 1 : 0;
     u16 src = ((s->io_hdma_src_high << 8) | s->io_hdma_src_low) & ~0xf;
     u16 dst = ((s->io_hdma_dst_high << 8) | s->io_hdma_dst_low) & ~0xf;
     dst = (dst & 0x1fff) | 0x8000; /* Ignore upper 3 bits (always in VRAM) */
 
-    printf("HDMA %.4x -> %.4x, len=%.4x mode_hblank=%d\n", src, dst, len,
-            mode_hblank);
+    printf("HDMA @%.2x:%.4x %.4x -> %.4x, blocks=%.2x mode_hblank=%d\n",
+            s->mem_bank_rom, s->pc,  src, dst, blocks, mode_hblank);
 
-    mmu_assert(src < 0x7ff0 || (src >= 0xa000 && src < 0xdff0));
-    mmu_assert(dst >= 0x8000 && dst < 0x9ff0);
+    if (s->io_hdma_running && !mode_hblank) {
+        /* Cancel ongoing H-Blank HDMA transfer */
+        s->io_hdma_running = 0;
+        s->io_hdma_status = 0xff; /* done */
+        return;
+    }
 
-    /* TODO: optimize by bypassing mmu_read/write */
-    for (u16 i = 0; i < len; i++)
-        mmu_write(s, dst++, mmu_read(s, src++));
+    mmu_assert(blocks > 0 && blocks <= 0x80);
+    mmu_assert(src + len <= 0x8000 || /* ROM */
+            (src >= 0xa000 && src + len <= 0xe000)); /* EXT_RAM */
+    mmu_assert(dst >= 0x8000 && dst + len <= 0xa000); /* VRAM */
 
-    s->io_hdma_status = 0xff; /* done */
+    if (!mode_hblank) {
+        for (u16 i = 0; i < len; i++)
+            mmu_write(s, dst++, mmu_read(s, src++));
+
+        s->io_hdma_status = 0xff; /* done */
+        u32 clks = blocks * GB_HDMA_BLOCK_CLKS;
+        if (s->double_speed)
+            clks *= 2;
+        s->emu_state->last_op_cycles += clks;
+    } else {
+        s->io_hdma_running = 1;
+        s->io_hdma_next_src = src;
+        s->io_hdma_next_dst = dst;
+        s->io_hdma_status = blocks - 1;
+
+        if ((s->io_lcd_STAT & 3) == 0) /* H-Blank */
+            mmu_hdma_do(s);
+    }
 }
 
 void mmu_write(struct gb_state *s, u16 location, u8 value) {
@@ -442,7 +485,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 break;
             case 0xff55:
                 MMU_DEBUG_W("HDMA length/mode and start transfer");
-                mmu_start_hdma(s, value);
+                mmu_hdma_start(s, value);
                 break;
             case 0xff56:
                 MMU_DEBUG_W("Infrared");

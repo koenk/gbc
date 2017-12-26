@@ -8,6 +8,8 @@ static const int GB_LCD_HEIGHT = 144; /* px */
 
 static const int GB_LCD_LY_MAX = 153;
 
+static const int GB_HDMA_BLOCK_CLKS = 8;    /* Per block of 0x10 bytes */
+
 static const int GB_LCD_MODE_0_CLKS = 204;  /* H-Blank */
 static const int GB_LCD_MODE_1_CLKS = 4560; /* V-Blank */
 static const int GB_LCD_MODE_2_CLKS = 80;   /* OAM read */

@@ -263,6 +263,8 @@ static void cpu_handle_LCD(struct gb_state *s) {
             s->io_lcd_STAT = (s->io_lcd_STAT & 0xfc) | 0;
             s->io_lcd_mode_cycles_left = GB_LCD_MODE_0_CLKS;
             s->emu_state->lcd_line_needs_rerender = 1;
+            if (s->io_hdma_running)
+                mmu_hdma_do(s);
             break;
         }
 
