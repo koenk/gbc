@@ -124,64 +124,50 @@ void gui_lcd_render_frame(char use_colors, uint16_t *pixbuf) {
     SDL_Delay(1000/120);
 }
 
-int gui_input_poll(struct gui_input *input) {
-    input->type = GUI_INPUT_NONE;
+int gui_input_poll(struct player_input *input) {
+    input->special_quit = 0;
+    input->special_savestate = 0;
+    input->special_dbgbreak = 0;
 
-    while (input->type == GUI_INPUT_NONE) {
-        SDL_Event event;
-        if (!SDL_PollEvent(&event))
-            return 0;
-
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
         switch (event.type) {
         case SDL_KEYDOWN:
             switch (event.key.keysym.sym) {
             case SDLK_ESCAPE:
             case SDLK_q:
-                input->type = GUI_INPUT_EXIT;
+                input->special_quit = 1;
                 break;
 
-            case SDLK_b:
-                input->type = GUI_INPUT_DBGBREAK;
-                break;
+            case SDLK_b:         input->special_dbgbreak = 1; break;
+            case SDLK_s:         input->special_savestate = 1; break;
 
-            case SDLK_s:
-                input->type = GUI_INPUT_SAVESTATE;
-                break;
-
-#define BD(btn) \
-                input->type = GUI_INPUT_BUTTON_DOWN; \
-                input->button = GUI_BUTTON_ ## btn;
-            case SDLK_RETURN:    BD(START); break;
-            case SDLK_BACKSPACE: BD(SELECT); break;
-            case SDLK_x:         BD(B); break;
-            case SDLK_z:         BD(A); break;
-            case SDLK_DOWN:      BD(DOWN); break;
-            case SDLK_UP:        BD(UP); break;
-            case SDLK_LEFT:      BD(LEFT); break;
-            case SDLK_RIGHT:     BD(RIGHT); break;
-#undef BD
+            case SDLK_RETURN:    input->button_start = 1; break;
+            case SDLK_BACKSPACE: input->button_select = 1; break;
+            case SDLK_x:         input->button_b = 1; break;
+            case SDLK_z:         input->button_a = 1; break;
+            case SDLK_DOWN:      input->button_down = 1; break;
+            case SDLK_UP:        input->button_up = 1; break;
+            case SDLK_LEFT:      input->button_left = 1; break;
+            case SDLK_RIGHT:     input->button_right = 1; break;
             }
             break;
 
         case SDL_KEYUP:
             switch (event.key.keysym.sym) {
-#define BU(btn) \
-                input->type = GUI_INPUT_BUTTON_UP; \
-                input->button = GUI_BUTTON_ ## btn;
-            case SDLK_RETURN:    BU(START); break;
-            case SDLK_BACKSPACE: BU(SELECT); break;
-            case SDLK_x:         BU(B); break;
-            case SDLK_z:         BU(A); break;
-            case SDLK_DOWN:      BU(DOWN); break;
-            case SDLK_UP:        BU(UP); break;
-            case SDLK_LEFT:      BU(LEFT); break;
-            case SDLK_RIGHT:     BU(RIGHT); break;
-#undef BU
+            case SDLK_RETURN:    input->button_start = 0; break;
+            case SDLK_BACKSPACE: input->button_select = 0; break;
+            case SDLK_x:         input->button_b = 0; break;
+            case SDLK_z:         input->button_a = 0; break;
+            case SDLK_DOWN:      input->button_down = 0; break;
+            case SDLK_UP:        input->button_up = 0; break;
+            case SDLK_LEFT:      input->button_left = 0; break;
+            case SDLK_RIGHT:     input->button_right = 0; break;
             }
             break;
 
         case SDL_QUIT:
-            input->type = GUI_INPUT_EXIT;
+            input->special_quit = 1;
         }
     }
     return 1;
