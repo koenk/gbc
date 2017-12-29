@@ -623,6 +623,7 @@ u8 mmu_read(struct gb_state *s, u16 location) {
         MMU_DEBUG_R("WRAM B%d @%x", s->mem_bank_wram, location - 0xd000);
         return s->mem_WRAM[s->mem_bank_wram * WRAM_BANKSIZE + location - 0xd000];
     case 0xe000: /* E000 - FDFF */
+        return mmu_read(s, location - 0x2000); /* TODO XXX */
         mmu_error("Reading from ECHO (0xc000 - 0xddff) B0: %x", location);
         return 0;
     case 0xf000:
@@ -796,7 +797,7 @@ u8 mmu_read(struct gb_state *s, u16 location) {
                 return s->io_lcd_WX;
             case 0xff4d:
                 MMU_DEBUG_R("KEY1: CGB speed (ignored)");
-                return 0;
+                return 1<<7; /* TODO XXX */
             case 0xff4f:
                 MMU_DEBUG_R("VRAM Bank");
                 mmu_assert(s->gb_type == GB_TYPE_CGB);
