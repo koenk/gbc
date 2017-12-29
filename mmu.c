@@ -436,7 +436,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
                 /* Normally this transfer takes ~160ms (during which only HRAM
                  * is accessible) but it's okay to be instantaneous. Normally
                  * roms loop for ~200 cycles or so to wait.  */
-                for (int i = 0; i < OAM_SIZE; i++)
+                for (unsigned i = 0; i < OAM_SIZE; i++)
                     s->mem_OAM[i] = mmu_read(s, (value << 8) + i);
                 break;
             case 0xff47:

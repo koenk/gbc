@@ -417,7 +417,7 @@ static void cpu_do_instruction(struct gb_state *s) {
         u16 *src = REG16(4);
         u32 tmp = HL + *src;
         NF = 0;
-        HF = ((HL & 0xfff) + (*src & 0xfff) & 0x1000) ? 1 : 0;
+        HF = (((HL & 0xfff) + (*src & 0xfff)) & 0x1000) ? 1 : 0;
         CF = tmp > 0xffff;
         HL = tmp;
     } else if (M(op, 0x0a, 0xff)) { /* LD A, (BC) */

@@ -45,7 +45,7 @@ void audio_update(struct gb_state *s) {
         static int env_step_cyc_left = 0;
         static int env_running = 0;
         static int env_vol = 0;
-        u8 ch2_len = s->io_sound_channel2_length_pattern & 0x3f;
+        /*u8 ch2_len = s->io_sound_channel2_length_pattern & 0x3f;*/
         u8 ch2_duty = s->io_sound_channel2_length_pattern >> 6;
         u8 ch2_use_len = s->io_sound_channel2_freq_hi & (1<<6) ? 1 : 0;
         u8 ch2_vol = s->io_sound_channel2_envelope >> 4;

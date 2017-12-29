@@ -13,12 +13,13 @@ int read_file(char *filename, uint8_t **buf, size_t *size) {
 
     /* Get the file size */
     fseek(fp, 0L, SEEK_END);
-    long allocsize = ftell(fp) * sizeof(uint8_t);
+    size_t allocsize = ftell(fp) * sizeof(uint8_t);
     rewind(fp);
 
     *buf = (uint8_t *)malloc(allocsize);
     if (*buf == NULL) {
-        printf("Error allocating mem for file (file=%s, size=%zu byte).",
+        fprintf(stderr,
+                "Error allocating mem for file (file=%s, size=%zu byte).",
                 filename, allocsize);
         fclose(fp);
         return 1;

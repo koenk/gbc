@@ -27,10 +27,10 @@ standalone: $(PROGNAME)
 libretro: $(LIBRETRONAME)
 
 $(PROGNAME): $(OBJS_STANDALONE)
-	$(CC) $(LDFLAGS) $(LDFLAGS_STANDALONE) -o $@ $^
+	$(CC) -o $@ $^ $(LDFLAGS) $(LDFLAGS_STANDALONE)
 
 $(LIBRETRONAME): $(OBJS_LIBRETRO)
-	$(CC) $(LDFLAGS) $(LDFLAGS_LIBRETRO) -o $@ $^
+	$(CC) -o $@ $^ $(LDFLAGS) $(LDFLAGS_LIBRETRO)
 
 obj_libretro:
 	mkdir -p $@
