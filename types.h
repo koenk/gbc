@@ -63,14 +63,37 @@ struct gb_state {
     /*
      * CPU state (registers, interrupts, etc)
      */
-
     /* Registers: allow access to 8-bit and 16-bit regs, and via array. */
+    #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
     union {
         u8 regs[8];
         struct {
             u16 BC, DE, HL, AF;
         } reg16;
-        struct { /* little-endian of x86 is not nice here. */
+        struct {
+            u8 B, C, D, E, H, L, A, F;
+        } reg8;
+        struct __attribute__((packed)) {
+            char padding[7];
+            u8 ZF:1;
+            u8 NF:1;
+            u8 HF:1;
+            u8 CF:1;
+            u8 pad1:1;
+            u8 pad2:1;
+            u8 pad3:1;
+            u8 pad4:1;
+        } flags;
+    };
+
+    #else
+    // Original Little Endian Setup
+    union {
+        u8 regs[8];
+        struct {
+            u16 BC, DE, HL, AF;
+        } reg16;
+        struct { // little-endian of x86 is not nice here.
             u8 C, B, E, D, L, H, F, A;
         } reg8;
         struct __attribute__((packed)) {
@@ -85,6 +108,7 @@ struct gb_state {
             u8 ZF:1;
         } flags;
     };
+    #endif
 
     u16 sp;
     u16 pc;
@@ -233,3 +257,4 @@ struct gb_state {
 
 
 #endif
+
