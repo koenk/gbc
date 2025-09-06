@@ -7,7 +7,6 @@ OBJS_LIBRETRO = libretro.o debugger-dummy.o
 OBJS_STANDALONE := $(patsubst %.o,obj_standalone/%.o,$(OBJS) $(OBJS_STANDALONE))
 OBJS_LIBRETRO := $(patsubst %.o,obj_libretro/%.o,$(OBJS) $(OBJS_LIBRETRO))
 
-CC = clang
 RM = rm -fv
 
 SDL2_CFLAGS  := $(shell pkg-config --cflags sdl2)

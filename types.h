@@ -113,9 +113,9 @@ struct gb_state {
     u16 sp;
     u16 pc;
 
-    char in_bios:1; /* At start BIOS is temporarily mapped at 0000-0100. */
-    char halt_for_interrupts:1; /* Don't run instructions until interrupt. */
-    char double_speed:1; /* CGB: we can run at double CPU speed. */
+    u8 in_bios:1; /* At start BIOS is temporarily mapped at 0000-0100. */
+    u8 halt_for_interrupts:1; /* Don't run instructions until interrupt. */
+    u8 double_speed:1; /* CGB: we can run at double CPU speed. */
 
     u8 interrupts_master_enabled:1;
     u8 interrupts_enable; /* Bitmask of which interrupts are enabled. */
@@ -206,7 +206,7 @@ struct gb_state {
     u8 io_hdma_src_high, io_hdma_src_low;
     u8 io_hdma_dst_high, io_hdma_dst_low;
     u8 io_hdma_status; /* (remaining) length in lower bits, high bit 1=done. */
-    char io_hdma_running:1;
+    u8 io_hdma_running:1;
     u16 io_hdma_next_src, io_hdma_next_dst;
 
 

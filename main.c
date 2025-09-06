@@ -63,7 +63,7 @@ int parse_args(int argc, char **argv, struct emu_args *emu_args) {
             {0, 0, 0, 0}
         };
 
-        char c = getopt_long(argc, argv, "Sadmb:l:e:", long_options, NULL);
+        int c = getopt_long(argc, argv, "Sadmb:l:e:", long_options, NULL);
 
         if (c == -1)
             break;

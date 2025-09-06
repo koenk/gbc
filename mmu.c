@@ -549,6 +549,7 @@ void mmu_write(struct gb_state *s, u16 location, u8 value) {
             s->interrupts_enable = value;
             break;
         }
+        // fallthrough
     default:
         mmu_error("Invalid write location: %x val=%x", location, value);
     }
@@ -832,7 +833,7 @@ u8 mmu_read(struct gb_state *s, u16 location) {
             MMU_DEBUG_R("Interrupt enable");
             return s->interrupts_enable;
         }
-
+        // fallthrough
     default:
         mmu_error("Reading from invalid location @%x", location);
         return 0;
