@@ -28,7 +28,7 @@ jobs:
         run: sudo apt update -y && sudo apt install -y build-essential libreadline-dev libsdl2-dev
 
       - name: Build zip
-        run: make zip
+        run: make standalone libretro zip
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -50,7 +50,7 @@ jobs:
         run: brew install sdl2
 
       - name: Build zip
-        run: make zip
+        run: make standalone libretro zip
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
