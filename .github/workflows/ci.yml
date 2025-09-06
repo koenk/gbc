@@ -15,7 +15,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: sudo apt update -y && sudo apt install -y build-essential libsdl2-dev
+        run: sudo apt update -y && sudo apt install -y build-essential libreadline-dev libsdl2-dev
 
       - name: Continuous Integration
         run: make standalone libretro
