@@ -1,3 +1,6 @@
+[![CI](https://github.com/koenk/gbc/actions/workflows/ci.yml/badge.svg)](https://github.com/koenk/gbc/actions/workflows/ci.yml)
+[![CD](https://github.com/koenk/gbc/actions/workflows/cd.yml/badge.svg)](https://github.com/koenk/gbc/actions/workflows/cd.yml)
+
 # GBC
 
 A simple GameBoy and GameBoy Color emulator written in C.
@@ -32,9 +35,10 @@ core there are no dependencies for building, but using it requires a compatible
 frontend such as Retroarch.
 
 Building and running the standalone frontend can be done as such:
-
-    $ make
-    $ ./main path/to/romfile
+```shell
+make
+./main path/to/romfile
+```
 
 Running `./main -h` shows all available options. Button mappings are as follows:
 
@@ -74,10 +78,10 @@ Linux, which can run Retroarch via hakchi2, we can run our libretro core on
 there as well simply by cross-compiling the code. This requires an ARM
 cross-compiler, which can be found on Ubuntu in the `gcc-arm-linux-gnueabihf`
 package. Then compiling can be done as such:
-
-    $ make clean  # To clean up any .o files created for the native architecture
-    $ make libretro CC=arm-linux-gnueabihf-gcc
-
+```shell
+make clean  # To clean up any .o files created for the native architecture
+make libretro CC=arm-linux-gnueabihf-gcc
+```
 Copy `koengb_libretro.so` to the SNES mini with hakchi2's FTP in
 `/var/lib/hakchi/rootfs/etc/libretro/core`. Create a folder in the games
 directory (`/var/lib/hakchi/rootfs/usr/share/games/001`), and modify the

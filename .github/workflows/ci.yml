@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  Linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt update -y && sudo apt install -y build-essential libreadline-dev libsdl2-dev
+
+      - name: Continuous Integration
+        run: make standalone libretro
+
+  MacOS:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: brew install sdl2
+
+      - name: Continuous Integration
+        run: make standalone libretro

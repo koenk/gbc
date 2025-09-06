@@ -2,5 +2,6 @@
 *.so
 *.d
 *.gb
+*.zip
 main
 .vscode
