@@ -14,12 +14,12 @@ SDL2_CFLAGS  := $(shell pkg-config --cflags sdl2)
 SDL2_LDFLAGS := $(shell pkg-config --libs sdl2)
 
 W_FLAGS = -Wall -Wextra -Werror-implicit-function-declaration -Wshadow
-CFLAGS = -MD -std=c11 -g3 -O0 $(W_FLAGS) $(SDL2_CFLAGS)
-CFLAGS_STANDALONE =
+CFLAGS = -MD -std=c11 -g3 -O0 $(W_FLAGS)
+CFLAGS_STANDALONE = $(SDL2_CFLAGS)
 CFLAGS_LIBRETRO = -fPIC
 
-LDFLAGS = -g3 $(SDL2_LDFLAGS)
-LDFLAGS_STANDALONE = -lSDL2 -lreadline
+LDFLAGS = -g3
+LDFLAGS_STANDALONE = $(SDL2_LDFLAGS) -lreadline
 LDFLAGS_LIBRETRO = -fPIC -shared
 
 .SUFFIXES: # Disable builtin rules
