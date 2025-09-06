@@ -5,9 +5,22 @@ OBJS_STANDALONE = main.o sdl.o debugger.o
 OBJS_LIBRETRO = libretro.o debugger-dummy.o
 
 OBJS_STANDALONE := $(patsubst %.o,obj_standalone/%.o,$(OBJS) $(OBJS_STANDALONE))
-OBJS_LIBRETRO := $(patsubst %.o,obj_libretro/%.o,$(OBJS) $(OBJS_LIBRETRO))
+OBJS_LIBRETRO   := $(patsubst %.o,obj_libretro/%.o,$(OBJS) $(OBJS_LIBRETRO))
 
 RM = rm -fv
+
+ARCH  	 := $(shell uname -m)
+UNAME_S  := $(shell uname -s)
+
+ifeq ($(UNAME_S),Linux)
+  PLATFORM := linux
+else ifeq ($(UNAME_S),Darwin)
+  PLATFORM := darwin
+else ifeq ($(OS),Windows_NT)
+  PLATFORM := windows
+else
+  PLATFORM := unknown
+endif
 
 SDL2_CFLAGS  := $(shell pkg-config --cflags sdl2)
 SDL2_LDFLAGS := $(shell pkg-config --libs sdl2)
@@ -47,6 +60,10 @@ obj_standalone/%.o: %.c | obj_standalone
 clean:
 	$(RM) $(PROGNAME) $(LIBRETRONAME)
 	$(RM) -r obj_standalone obj_libretro
+
+zip:
+	zip -9 -r gbc-${PLATFORM}-${ARCH}.zip ${PROGNAME}
+	zip -9 -r koengb_libretro-${PLATFORM}-${ARCH}.zip ${LIBRETRONAME}
 
 -include obj_standalone/*.d
 -include obj_libretro/*.d
