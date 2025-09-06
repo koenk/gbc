@@ -1,3 +1,6 @@
+[![CI](https://github.com/koenk/gbc/actions/workflows/ci.yml/badge.svg)](https://github.com/koenk/gbc/actions/workflows/ci.yml)
+[![CD](https://github.com/koenk/gbc/actions/workflows/cd.yml/badge.svg)](https://github.com/koenk/gbc/actions/workflows/cd.yml)
+
 # GBC
 
 A simple GameBoy and GameBoy Color emulator written in C.
