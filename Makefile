@@ -10,12 +10,15 @@ OBJS_LIBRETRO := $(patsubst %.o,obj_libretro/%.o,$(OBJS) $(OBJS_LIBRETRO))
 CC = clang
 RM = rm -fv
 
+SDL2_CFLAGS  := $(shell pkg-config --cflags sdl2)
+SDL2_LDFLAGS := $(shell pkg-config --libs sdl2)
+
 W_FLAGS = -Wall -Wextra -Werror-implicit-function-declaration -Wshadow
-CFLAGS = -MD -std=c11 -g3 -O0 $(W_FLAGS)
+CFLAGS = -MD -std=c11 -g3 -O0 $(W_FLAGS) $(SDL2_CFLAGS)
 CFLAGS_STANDALONE =
 CFLAGS_LIBRETRO = -fPIC
 
-LDFLAGS = -g3
+LDFLAGS = -g3 $(SDL2_LDFLAGS)
 LDFLAGS_STANDALONE = -lSDL2 -lreadline
 LDFLAGS_LIBRETRO = -fPIC -shared
 

@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 
@@ -28,8 +29,8 @@ int dbg_run_debugger(struct gb_state *s) {
 
         /* Copy into buffer that is automatically free'd on function exit. */
         char input[32];
-        strncpy(input, raw_input, 32);
-        input[31] = '\0';
+        strncpy(input, raw_input, sizeof(input));
+        input[sizeof(input) - 1] = '\0';
         free(raw_input);
 
         if (strlen(input) == 0) {
